@@ -1,5 +1,8 @@
 {
   "functions": {
+    "api/identify.ts": {
+      "maxDuration": 30
+    },
     "api/sounds.ts": {
       "maxDuration": 30
     }
