@@ -10,7 +10,8 @@ const image = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 2, 0xff, 0xd9]).toString('
 const post = { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-pocket-band': '1' }, body: JSON.stringify({ image }) };
 
 async function serve(t: TestContext, provider: typeof fetch, key = 'test-key') {
-  const server = createServer(identifyHandler(key, provider));
+  const handle = identifyHandler(provider);
+  const server = createServer((req, res) => handle(req, res, { key }));
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise<void>(resolve => server.close(() => resolve())));
   return 'http://127.0.0.1:' + (server.address() as AddressInfo).port + '/api/identify';

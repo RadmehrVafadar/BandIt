@@ -1,32 +1,40 @@
 import { hoofbeats } from './horse.ts';
+import { fetchStudioApi } from './auth.ts';
+import type { StudioAccess } from './auth.ts';
 import type { Instrument, Sample } from './music.ts';
 import { illustratedSoundName } from './object-labels.ts';
 
 const demoNames = new Set(['keys', 'drum', 'cup']);
 
-export async function objectSound(name: string, context: BaseAudioContext): Promise<Sample> {
+async function horseRecording(context: BaseAudioContext): Promise<Sample> {
+  const response = await fetch(import.meta.env.BASE_URL + 'demo-sounds/horse.wav');
+  if (!response.ok) throw new Error('Horse recording unavailable');
+  const sample = await decodeSample(await response.arrayBuffer(), context);
+  return { ...sample, preserveRecording: true, articulation: 'whinny' };
+}
+
+export class SoundKeyError extends Error {}
+
+export async function objectSound(name: string, context: BaseAudioContext, access: StudioAccess): Promise<Sample> {
   const label = illustratedSoundName(name.toLowerCase());
-  if (label === 'horse') {
-    const response = await fetch(import.meta.env.BASE_URL + 'demo-sounds/horse.wav');
-    if (!response.ok) throw new Error('Horse recording unavailable');
-    const sample = await decodeSample(await response.arrayBuffer(), context);
-    return { ...sample, preserveRecording: true, articulation: 'whinny' };
-  }
+  if (label === 'horse') return horseRecording(context);
   if (demoNames.has(label)) {
     const response = await fetch(import.meta.env.BASE_URL + 'demo-sounds/' + label + '.mp3');
     if (!response.ok) throw new Error('Demo clip unavailable');
     return decodeSample(await response.arrayBuffer(), context);
   }
   const cacheKey = import.meta.env.BASE_URL + 'object-audio/' + encodeURIComponent(label);
-  const cache = await globalThis.caches?.open('bandit-object-audio-v1').catch(() => undefined);
+  const scope = access.account && access.keys.elevenlabs ? ':' + access.account.sub : '';
+  const cache = await globalThis.caches?.open('bandit-object-audio-v1' + scope).catch(() => undefined);
   let generated = false;
   let response = await cache?.match(cacheKey).catch(() => undefined);
   if (!response?.ok || !response.headers.get('content-type')?.startsWith('audio/')) {
     generated = true;
-    response = await fetch(import.meta.env.BASE_URL + 'api/sounds?name=' + encodeURIComponent(label), {
+    response = await fetchStudioApi(access, `sounds?name=${encodeURIComponent(label)}`, {
       method: 'POST', headers: { 'x-pocket-band': '1' }, signal: AbortSignal.timeout(25000),
     });
   }
+  if (response.status === 403 && access.keys.elevenlabs) throw new SoundKeyError('Check your ElevenLabs key in API keys.');
   if (!response.ok) throw new Error('Sound unavailable');
   const encoded = await response.arrayBuffer();
   const sample = await decodeSample(encoded, context);
@@ -59,7 +67,7 @@ export async function restoreHorseSounds(instruments: Instrument[]) {
   const older = instruments.filter(item => item.kind === 'whistle' && item.name === 'Horse' && !item.sample.articulation);
   if (!older.length) return;
   try {
-    const whinny = await objectSound('Horse', new OfflineAudioContext(1, 1, 44100));
+    const whinny = await horseRecording(new OfflineAudioContext(1, 1, 44100));
     for (const item of older) item.sample = whinny;
   } catch {
     for (const item of older) {

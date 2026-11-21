@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page, Route } from '@playwright/test';
+import { mockAuth0, testAccessToken } from '../fixtures/auth0.ts';
 
 test.use({
   permissions: ['camera'],
@@ -7,6 +8,10 @@ test.use({
     executablePath: process.env.BANDIT_CHROME ?? process.env.POCKET_BAND_CHROME,
     args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
   },
+});
+
+test.beforeEach(async ({ page, baseURL }) => {
+  await mockAuth0(page, { returningAt: baseURL });
 });
 
 async function openCamera(page: Page, slot: number) {
@@ -17,11 +22,41 @@ async function openCamera(page: Page, slot: number) {
   return page.getByRole('dialog', { name: 'Camera', exact: true });
 }
 
+for (const mode of ['demo', 'skip', 'personal Gemini', 'personal ElevenLabs'] as const) {
+  test(mode + ' sends only the selected credential to each feature', async ({ page }) => {
+    await page.goto(mode === 'demo' ? '/?demo' : '/');
+    if (mode !== 'demo') {
+      await page.getByRole('button', { name: 'API keys', exact: true }).click();
+      if (mode === 'personal Gemini') await page.getByLabel('Gemini API key', { exact: false }).fill('test-photo-key');
+      if (mode === 'personal ElevenLabs') await page.getByLabel('ElevenLabs API key', { exact: false }).fill('test-sound-key');
+      await page.getByRole('button', { name: 'Save keys' }).click();
+    }
+    const calls: string[] = [];
+    await page.route('**/api/**', async route => {
+      const req = route.request();
+      const path = new URL(req.url()).pathname;
+      const headers = req.headers();
+      expect(headers.authorization).toBe(mode === 'demo' ? undefined : 'Bearer ' + testAccessToken);
+      expect(headers['x-bandit-demo']).toBe(mode === 'demo' ? '1' : undefined);
+      const expected = path === '/api/identify' && mode === 'personal Gemini' ? 'test-photo-key'
+        : path === '/api/sounds' && mode === 'personal ElevenLabs' ? 'test-sound-key' : undefined;
+      expect(headers['x-bandit-api-key']).toBe(expected);
+      calls.push(path);
+      return path === '/api/identify' ? route.fulfill({ json: { name: 'basketball' } }) : route.fulfill({ status: 503 });
+    });
+    const camera = await openCamera(page, 1);
+    await camera.getByRole('button', { name: 'Take photo' }).click();
+    await expect(page.getByRole('button', { name: 'Solo Basketball' })).toBeVisible();
+    expect(calls).toEqual(['/api/identify', '/api/sounds']);
+  });
+}
+
 test('photographs an object into the chosen slot and saves it for reuse', async ({ page }) => {
   let captures = 0;
   await page.route('**/api/identify', route => {
     const request = route.request();
     expect(request.method()).toBe('POST');
+    expect(request.headers().authorization).toBe('Bearer ' + testAccessToken);
     expect(request.postDataJSON().image).toMatch(/^\/9j\//);
     captures++;
     return route.fulfill({ json: { name: 'bell' } });

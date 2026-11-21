@@ -26,6 +26,52 @@ button:disabled { cursor: default; color: #77777e; }
 ::selection { color: black; background: #eee; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
+.login-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+}
+.login-content { display: grid; justify-items: center; max-width: 24rem; }
+.login-content .login-note { width: 84px; height: 84px; margin-bottom: 14px; }
+.login-content h1 { font: 700 clamp(3rem, 9vw, 4.25rem)/1 var(--heading); letter-spacing: -.04em; }
+.login-content p { margin: 14px 0 28px; color: var(--muted); line-height: 1.5; }
+.login-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 14px;
+  min-height: 48px; padding: 10px 20px; border: 0; border-radius: 10px;
+  background: var(--ink); color: var(--canvas); font-weight: 650;
+}
+.login-button:hover:enabled { background: #dedee2; }
+.login-button:disabled { background: var(--hover); color: var(--muted); }
+.demo-link, .text-button {
+  display: inline-flex; align-items: center; min-height: 44px;
+  color: var(--muted); text-decoration: underline; text-underline-offset: 4px;
+}
+.login-content > .demo-link { margin-top: 8px; }
+.demo-link:hover, .text-button:hover { color: var(--ink); }
+.text-button { padding: 0; border: 0; background: transparent; }
+.keys-dialog {
+  width: min(26rem, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto;
+  border: 1px solid var(--line); border-radius: 16px; padding: clamp(20px, 5vw, 32px);
+  background: var(--panel); color: var(--ink);
+}
+.keys-dialog::backdrop { background: rgb(0 0 0 / 86%); }
+.keys-dialog form { display: grid; }
+.keys-dialog h2 { margin: 0; font: 650 2rem/1.15 var(--heading); letter-spacing: -.03em; }
+.keys-dialog p { margin: 10px 0 4px; color: var(--muted); font-size: .95rem; line-height: 1.5; }
+.keys-dialog label { margin: 21px 0 7px; font-weight: 600; }
+.keys-dialog label span { display: block; margin-top: 2px; font-size: .85rem; font-weight: 400; color: var(--muted); }
+.keys-dialog input {
+  min-width: 0; width: 100%; min-height: 44px; padding: 9px 12px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--canvas); color: var(--ink); font: inherit;
+}
+.keys-dialog .key-lifetime { margin: 12px 0 20px; font-size: .85rem; }
+.keys-dialog [role=alert] { margin: 0 0 12px; color: #ffc8bc; }
+.key-actions { display: flex; justify-content: center; gap: 24px; margin-top: 4px; }
+.studio-account { grid-area: brand; place-self: center start; display: flex; align-items: center; gap: 4px; pointer-events: none; }
+.studio-account .icon-button { color: var(--muted); pointer-events: auto; }
+
 .workspace {
   --edge: clamp(14px, 2.4vw, 32px);
   --top-edge: max(var(--edge), env(safe-area-inset-top));
@@ -60,7 +106,6 @@ button:disabled { cursor: default; color: #77777e; }
 .drawing-area canvas[data-disabled=true] { cursor: default; }
 .brand, .board-prompt, .performer, .board-notice, .error { pointer-events: none; user-select: none; }
 .brand {
-  grid-area: brand;
   display: flex;
   align-items: center;
   align-self: center;
@@ -271,4 +316,9 @@ button:disabled { cursor: default; color: #77777e; }
   .board-prompt img { width: 58px; height: 58px; }
   .mix { gap: 6px; margin-top: 10px; }
   .solo-icon { top: 7px; left: 7px; width: 12px; height: 12px; }
+}
+@media (max-width: 360px) {
+  .studio-account { gap: 0; }
+  .studio-account .brand-note { display: none; }
+  .canvas-controls { gap: 4px; }
 }

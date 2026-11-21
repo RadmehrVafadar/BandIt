@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, X } from 'lucide-react';
 import { photoMeanings } from './object-labels.ts';
+import { fetchStudioApi } from './auth.ts';
+import type { StudioAccess } from './auth.ts';
 
 type Props = {
+  access: StudioAccess;
   onClose: () => void;
   onCapture: () => void;
   onIdentify: (name: string, photo: string) => boolean;
 };
 
-export function CameraCapture({ onClose, onCapture, onIdentify }: Props) {
+export function CameraCapture({ access, onClose, onCapture, onIdentify }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const session = useRef<AbortController>(null);
@@ -84,7 +87,7 @@ export function CameraCapture({ onClose, onCapture, onIdentify }: Props) {
       frame.getContext('2d')!.drawImage(preview, 0, 0, frame.width, frame.height);
       const snapshot = frame.toDataURL('image/jpeg', 0.8);
       setPhoto(snapshot);
-      const response = await fetch(import.meta.env.BASE_URL + 'api/identify', {
+      const response = await fetchStudioApi(access, 'identify', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'x-pocket-band': '1' },
         body: JSON.stringify({ image: snapshot.slice(snapshot.indexOf(',') + 1) }),
         signal: AbortSignal.any([signal, AbortSignal.timeout(25000)]),
@@ -94,8 +97,12 @@ export function CameraCapture({ onClose, onCapture, onIdentify }: Props) {
         setError('No clear object found. Center one object and take another photo.');
         return;
       }
+      if (response.status === 403 && access.keys.gemini) {
+        setError('Check your Gemini key in API keys, then try the photo again.');
+        return;
+      }
       if (response.status === 503) {
-        setError('Camera recognition needs a Gemini API key on this server.');
+        setError('Photo recognition is unavailable. You can still draw the object.');
         return;
       }
       if (!response.ok) throw new Error('Recognition unavailable');
