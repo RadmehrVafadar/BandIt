@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PHRASE, STEP_SECONDS, score } from '../../src/music.ts';
 import type { Part } from '../../src/music.ts';
+import { drawingSample } from '../../src/drawing-sounds.ts';
 import { objectSample } from '../../src/objects.ts';
 import { partSample, stablePitch } from '../../src/part-sample.ts';
 
@@ -32,5 +33,13 @@ test('four identical source sounds leave mix headroom through the loop boundary'
     }
     const peak = mix.reduce((max, value) => Math.max(max, Math.abs(value)), 0);
     assert.ok(peak > .2 && peak < .9, kind + ' ensemble peak ' + peak);
+  }
+});
+
+test('the car starter and idle survive arrangement in every part, including pulse', () => {
+  const car = drawingSample('car');
+  assert.ok(car.samples.length > .8 * car.rate);
+  for (const part of Object.keys(score) as Part[]) {
+    assert.equal(partSample(car, part), car);
   }
 });

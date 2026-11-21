@@ -40,6 +40,7 @@ export function stablePitch({ samples, rate }: Sample) {
 
 const lengths = { pulse: .34, backbeat: .145, motion: .095, hook: .42 };
 export function partSample(sample: Sample, part: Part): Sample {
+  if (sample.preserveRecording) return sample;
   const { rate, samples: raw } = sample;
   const pitch = part === 'hook' ? stablePitch(sample) : 0;
   const root = pitch < 370 ? 261.6256 : 523.2511;

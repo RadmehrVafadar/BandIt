@@ -86,6 +86,22 @@ export function drawingVoice(label: string): Voice {
 }
 
 export function drawingSample(label: string): Sample {
+  if (label === 'car') {
+    const rate = 44100;
+    const samples = new Float32Array(Math.round(rate * .94));
+    let phase = 0;
+    for (let i = 0; i < samples.length; i++) {
+      const t = i / rate;
+      const starting = t < .38;
+      const frequency = starting ? 115 + 22 * Math.sin(2 * Math.PI * 9 * t)
+        : 48 + 52 * Math.exp(-4 * (t - .38));
+      phase += 2 * Math.PI * frequency / rate;
+      const crank = starting ? .2 + .8 * Math.sin(Math.PI * 9 * t) ** 2 : 1;
+      const engine = Math.sin(phase) + .42 * Math.sin(phase * 2) + .24 * Math.sin(phase * 5);
+      samples[i] = .33 * engine * crank * Math.min(1, t / .01, (samples.length - 1 - i) / (rate * .17));
+    }
+    return { samples, rate, preserveRecording: true };
+  }
   const { patch } = drawingVoice(label);
   let seed = 2166136261;
   for (const char of label) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619) >>> 0;

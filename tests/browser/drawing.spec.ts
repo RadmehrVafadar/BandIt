@@ -351,6 +351,13 @@ for (const source of ['demo', 'live']) {
       });
     });
     expect(duration).toBeCloseTo(0.1, 2);
+    if (source === 'live') {
+      await page.reload();
+      await draw(page, key, 80, 90);
+      await page.getByRole('button', { name: 'Use Keys sound' }).click();
+      await expect(page.getByRole('button', { name: 'Remove Keys' })).toHaveCount(2);
+      expect(requests).toBe(1);
+    }
   });
 }
 

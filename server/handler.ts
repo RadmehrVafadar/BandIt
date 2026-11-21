@@ -2,11 +2,13 @@ import modelLabels from '../src/doodle-labels.json' with { type: 'json' };
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { soundBank } from './sounds.ts';
 
-export function soundHandler(directory: string, key: string) {
-  const labels = new Set(modelLabels.map(label => label.replaceAll('_', ' ')));
+import type { SharedSoundCache } from './shared-cache.ts';
+
+export function soundHandler(directory: string, key: string, shared?: SharedSoundCache) {
+  const labels = new Set(modelLabels.map(label => label.toLowerCase().replaceAll('_', ' ')));
   for (const name of ['keys', 'drum', 'bell', 'whistle', 'cup', 'pencil']) labels.add(name);
 
-  const bank = soundBank(directory, labels, key);
+  const bank = soundBank(directory, labels, key, fetch, shared);
   return async (req: IncomingMessage, res: ServerResponse) => {
     const name = new URL(req.url ?? '/', 'http://localhost').searchParams.get('name') ?? '';
     if (req.method !== 'POST' || req.headers['x-pocket-band'] !== '1' || !labels.has(name)) {
