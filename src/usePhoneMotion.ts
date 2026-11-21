@@ -1,55 +1,49 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { BeatEngine } from './engine.ts';
-import type { Position } from './music.ts';
-import { createLooseStage, screenForce } from './phone-motion.ts';
+import { createLooseStage } from './phone-motion.ts';
 
-type SensorState = 'auto' | 'off' | 'asking' | 'waiting' | 'on' | 'denied' | 'unavailable';
+type MotionSensor = typeof DeviceMotionEvent & { requestPermission?(): Promise<PermissionState> };
 
-export function usePhoneMotion(engine: BeatEngine | undefined, actors: RefObject<Map<string, HTMLDivElement>>, playing: boolean) {
+export function usePhoneMotion(
+  engine: BeatEngine | undefined, actors: RefObject<Map<string, HTMLDivElement>>, playing: boolean, objectCount: number,
+) {
+  const motion = window.DeviceMotionEvent as MotionSensor | undefined;
   const touchDevice = navigator.maxTouchPoints > 0 || matchMedia('(pointer: coarse)').matches;
-  const supported = touchDevice && window.isSecureContext && !!window.DeviceMotionEvent;
-  const [sensor, setSensor] = useState<SensorState>(() => matchMedia('(prefers-reduced-motion: reduce)').matches ? 'off' : 'auto');
+  const supported = touchDevice && window.isSecureContext && !!motion;
+  const single = supported && objectCount === 1;
+  const [access, setAccess] = useState<PermissionState | 'asking'>(motion?.requestPermission ? 'prompt' : 'granted');
+  const [signal, setSignal] = useState<'waiting' | 'ready' | 'unavailable'>('waiting');
   const [stage] = useState(createLooseStage);
-  const force = useRef<Position>({ x: 0, y: 0 });
   const requested = useRef(false);
-  const active = sensor === 'on';
-  const pending = sensor === 'asking' || sensor === 'waiting';
+  const active = single && access === 'granted' && signal === 'ready';
 
   useEffect(() => {
-    if (!supported) return;
-    const preference = matchMedia('(prefers-reduced-motion: reduce)');
-    const change = () => setSensor(preference.matches ? 'off' : 'auto');
-    preference.addEventListener('change', change);
-    return () => preference.removeEventListener('change', change);
-  }, [supported]);
-
-  useEffect(() => {
-    if (!supported || sensor === 'off' || sensor === 'asking' || sensor === 'denied') return;
+    setSignal('waiting');
+    if (!single || access !== 'granted' || !engine) return;
     const appleMobile = /iPhone|iPad|iPod/.test(navigator.platform) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    function read(event: DeviceMotionEvent) {
+    const timeout = window.setTimeout(() => setSignal('unavailable'), 2500);
+    let ready = false;
+    const read = (event: DeviceMotionEvent) => {
       const angle = screen.orientation?.angle ?? window.orientation ?? 0;
-      const next = screenForce(event.accelerationIncludingGravity, angle, appleMobile)
-        ?? screenForce(event.acceleration, angle, appleMobile);
-      if (!next) return;
-      force.current = next;
-      if (sensor !== 'on') setSensor('on');
-    }
+      const usable = stage.read(event, angle, appleMobile, engine.running && !document.hidden);
+      if (usable && !ready) {
+        ready = true;
+        clearTimeout(timeout);
+        setSignal('ready');
+      }
+    };
     window.addEventListener('devicemotion', read);
-    // Some in-app browsers grant permission without exposing a sensor.
-    const timeout = sensor === 'waiting' ? window.setTimeout(() => setSensor('unavailable'), 2500) : undefined;
     return () => {
       window.removeEventListener('devicemotion', read);
       clearTimeout(timeout);
+      stage.reset(actors.current);
     };
-  }, [sensor, supported]);
+  }, [single, access, engine, actors, stage]);
 
   useEffect(() => {
-    engine?.setMotionEnabled(sensor === 'on' || sensor === 'asking' || sensor === 'waiting');
-  }, [sensor, engine]);
-  useEffect(() => {
-    if (active) return () => stage.reset(actors.current);
-  }, [active, actors, stage]);
+    engine?.setMotionEnabled(single && (access === 'asking' || (access === 'granted' && signal !== 'unavailable')));
+  }, [single, access, signal, engine]);
 
   useEffect(() => {
     if (!engine || !active || !playing) return;
@@ -59,39 +53,33 @@ export function usePhoneMotion(engine: BeatEngine | undefined, actors: RefObject
     function move(now: number) {
       const elapsed = Math.max(0, Math.min(.05, (now - previous) / 1000));
       previous = now;
-      if (!document.hidden) stage.move(actors.current, force.current, elapsed, impact);
+      if (!document.hidden) stage.move(actors.current, elapsed, impact);
       animation = requestAnimationFrame(move);
     }
+    document.addEventListener('visibilitychange', stage.clearShake);
     animation = requestAnimationFrame(move);
-    return () => cancelAnimationFrame(animation);
+    return () => {
+      document.removeEventListener('visibilitychange', stage.clearShake);
+      cancelAnimationFrame(animation);
+      stage.clearShake();
+    };
   }, [engine, active, playing, actors, stage]);
 
-  const motion = window.DeviceMotionEvent as (typeof DeviceMotionEvent & { requestPermission?(): Promise<PermissionState> }) | undefined;
-
-  async function enable() {
+  async function requestAccess(nextCount = objectCount) {
+    if (!supported || nextCount !== 1 || !motion?.requestPermission || access !== 'prompt' || requested.current) return;
     requested.current = true;
     engine?.setMotionEnabled(true);
-    setSensor('asking');
+    setAccess('asking');
     try {
-      // WebKit requires the permission call directly in a user gesture.
-      const permission = await motion?.requestPermission?.();
-      setSensor(permission === 'denied' ? 'denied' : 'waiting');
+      const permission = await motion.requestPermission();
+      setAccess(permission === 'granted' ? 'granted' : 'denied');
     } catch {
-      setSensor('denied');
+      setAccess('denied');
     }
   }
 
-  function startFromGesture() {
-    if (supported && sensor === 'auto' && !requested.current && motion?.requestPermission) void enable();
-  }
-
-  function toggle() {
-    if (active) setSensor('off');
-    else void enable();
-  }
-
-  const message = sensor === 'denied' ? 'Motion access was denied. You can still play the beat.'
-    : sensor === 'unavailable' ? 'Motion data is unavailable. You can still play the beat.'
-    : sensor === 'waiting' ? 'Waiting for phone motion…' : '';
-  return { supported, active, startFromGesture, toggle, pending, message };
+  let message = '';
+  if (single && access === 'denied') message = 'Motion access was denied. You can still play the beat.';
+  if (single && access === 'granted' && signal === 'unavailable') message = 'Motion data is unavailable. You can still play the beat.';
+  return { requestAccess, message };
 }

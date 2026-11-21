@@ -15,11 +15,15 @@ On browsers with the Audio Session API, the mixer requests media playback when t
 
 ## Phone motion
 
-Touch devices with motion access use accelerometer readings to move objects in screen coordinates.
-Objects coast between readings and stop at the four edges.
+On a touch device with motion access, a single object follows the phone automatically.
+A steady tilt accelerates it across the screen, while a firm shake sends it toward an edge.
+Phone playback uses a fixed gravity of 13% and shake sensitivity of 5%.
+The stage keeps the strongest shake between animation frames, including a shake through the face of the phone.
 A moving object plays its own sample when it reaches an edge and stays quiet while resting there.
-Motion playback applies lineup changes immediately and pauses both movement and sound when the listener taps **Pause**.
-The beat is available when motion permission is denied or the browser supplies no readings.
+Adding a second object starts the beat, and returning to one object restores motion playback.
+For a saved band, the permission prompt waits until one playing object needs the sensor.
+Pausing freezes movement and sound and discards shakes made while paused.
+The beat takes over when motion permission is denied or the browser supplies no usable readings.
 
 ## Pausing between beats
 

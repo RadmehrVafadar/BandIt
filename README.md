@@ -1,7 +1,7 @@
 # BandIt
 
 BandIt turns sketches and photos into playable objects.
-Tilt your phone to send them into the screen edges, or build a band that bounces to the beat.
+Shake your phone to send one object into a screen edge, or add a second object to start a band.
 The whole screen is a black canvas with white ink and floating controls.
 The rainbow note logo holds still when reduced motion is enabled.
 
@@ -24,10 +24,11 @@ npm run dev
 Open the localhost URL Vite prints.
 
 On iPhone, open the site over HTTPS, draw with your finger, and tap a sound.
-Allow motion access when prompted, then tilt or shake the phone to send the object into a screen edge.
-Each impact plays that object's sound once.
-Tap **Tilt to play** to switch between motion and the beat.
-With Reduced Motion enabled or motion access unavailable, the beat is available by default.
+Allow motion access when prompted, then give the phone a firm shake to send the object toward a screen edge.
+Each impact plays the object's sound once, and a steady tilt lets you guide it more gently.
+Adding a second object starts the beat automatically.
+Removing objects until one remains returns it to motion playback.
+If motion access is denied or sensor readings are unavailable, the object plays on the beat.
 If an in-app browser waits for a playback gesture, tap **Play** after the object appears.
 
 For camera recognition, put `GEMINI_API_KEY=your-key` in the project's ignored `.env.local` and restart Vite.
@@ -85,13 +86,13 @@ Close matches to the original six instrument templates remain available, and the
 The strip shows up to eight illustrated guesses in ranked order and scrolls horizontally on smaller screens.
 Picking an illustration adds it to the stage where you drew and gives it the selected object's sound.
 In beat playback, bouncing objects knock each other sideways and settle back toward where you placed them, with each landing timed to the beat.
-Reduced motion keeps performers in place.
+Reduced Motion keeps performers in place during beat playback.
 Try one bell to hear the melody, then draw more bells to add the pulse, backbeat, and offbeats.
 The harmony moves through Cm7, A-flat major 7, E-flat 6, and G7 before returning to C minor.
 With two or more drawings, a quieter bass joins on the offbeat in the second bar.
 With three or four, soft strings enter halfway through the phrase and release before it repeats.
 Soloing a drawing mutes the other players and all backing parts.
-Lineup changes take effect on the next downbeat in a running band and immediately in phone motion.
+Lineup changes within a running band take effect on the next downbeat.
 For how sound and stage animation stay in sync across lineup changes and pauses, see the [playback guide](docs/playback.md).
 In a band, Horse plays soft hoofbeats and a plucked string between full-length calls.
 Multiple horses take turns whinnying.

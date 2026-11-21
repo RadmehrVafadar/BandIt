@@ -138,16 +138,12 @@ button:disabled { cursor: default; color: #77777e; }
   top: 0; left: 0; bottom: auto;
   transform: translate3d(clamp(0px, var(--motion-x), 100cqw - 100%), clamp(0px, var(--motion-y), 100cqh - 100%), 0);
 }
-.motion-control {
+.motion-status {
   position: absolute; bottom: var(--bottom-edge); left: 50%; transform: translateX(-50%);
-  display: grid; justify-items: center; gap: 6px; width: max-content; max-width: calc(100% - 2 * var(--edge));
-}
-.motion-control button, .motion-control p {
+  width: max-content; max-width: calc(100% - 2 * var(--edge)); pointer-events: none;
   border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+  padding: 6px 10px; text-align: center; font-size: .875rem;
 }
-.motion-control button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; font-weight: 650; }
-.motion-control button[aria-pressed=true] { border-color: var(--ink); background: var(--hover); }
-.motion-control p { padding: 6px 10px; text-align: center; font-size: .875rem; }
 [data-solo-muted=true] { --solo-opacity: .6; opacity: var(--solo-opacity); }
 .performer[data-queued=true] { opacity: calc(.55 * var(--solo-opacity, 1)); }
 .performer[data-hit=true] { filter: drop-shadow(0 1px 3px #aaa); }
