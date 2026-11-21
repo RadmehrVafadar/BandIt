@@ -1,13 +1,15 @@
 import type { Position } from './music.ts';
 
-export type MotionSettings = { gravity: number; sensitivity: number };
-export const defaultMotionSettings: MotionSettings = { gravity: 65, sensitivity: 35 };
+const gravityLevel = 13 / 100;
+const shakeSensitivity = 5 / 100;
 
 // Accelerometer readings are in m/s². Scale them into CSS pixels per second squared.
 const pixelsPerMeter = 640;
-const shakeThreshold = 2.5; // m/s² of movement after removing gravity
+const lightShakeThreshold = 2.5; // m/s² of movement after removing gravity
 const firmShakeThreshold = 10;
-const maxDownwardPull = 6;
+const shakeResistance = (1 - shakeSensitivity) * (firmShakeThreshold - lightShakeThreshold);
+const shakeThreshold = lightShakeThreshold + shakeResistance;
+const downwardPull = 6 * gravityLevel; // m/s² toward the bottom of the screen
 const maxScreensPerSecond = 8;
 const tiltDeadZone = .2;
 type Vector = Position & { z: number };
@@ -15,17 +17,13 @@ type Axis = { position: number; speed: number; wall?: -1 | 1 };
 type Body = { x: Axis; y: Axis; movingVertically: boolean };
 type MotionSample = Pick<DeviceMotionEvent, 'acceleration' | 'accelerationIncludingGravity' | 'interval'>;
 
-function settingFraction(value: number, fallback: number) {
-  return (Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : fallback) / 100;
-}
-
 function vector(reading: DeviceMotionEventAcceleration | null, allowZOnly = false): Vector | undefined {
   if (!reading) return;
   const { x, y, z } = reading;
   if (x !== null && y !== null && Number.isFinite(x) && Number.isFinite(y)) {
     return { x, y, z: z !== null && Number.isFinite(z) ? z : 0 };
   }
-  if (allowZOnly && z !== null && Number.isFinite(z) && Math.abs(z) >= shakeThreshold) return { x: 0, y: 0, z };
+  if (allowZOnly && z !== null && Number.isFinite(z) && Math.abs(z) >= lightShakeThreshold) return { x: 0, y: 0, z };
 }
 
 function subtract(a: Vector, b: Vector): Vector {
@@ -65,22 +63,13 @@ export function advanceLooseAxis(axis: Axis, force: number, extent: number, elap
   return hit;
 }
 
-export function createLooseStage(initialSettings: MotionSettings = defaultMotionSettings) {
+export function createLooseStage() {
   let bodies = new WeakMap<HTMLDivElement, Body>();
   let tilt: Position = { x: 0, y: 0 };
   let startingTiltY: number | undefined;
   let gravity: Vector | undefined;
   let firstMovingSample: Vector | undefined;
   let pending: (Position & { strength: number }) | undefined;
-  let gravityLevel: number;
-  let shakeResistance: number;
-  function setSettings(settings: MotionSettings) {
-    gravityLevel = settingFraction(settings.gravity, defaultMotionSettings.gravity);
-    const sensitivity = settingFraction(settings.sensitivity, defaultMotionSettings.sensitivity);
-    shakeResistance = (1 - sensitivity) * (firmShakeThreshold - shakeThreshold);
-    if (pending && pending.strength < shakeThreshold + shakeResistance) pending = undefined;
-  }
-  setSettings(initialSettings);
 
   function clearShake() {
     pending = undefined;
@@ -110,7 +99,6 @@ export function createLooseStage(initialSettings: MotionSettings = defaultMotion
   }
 
   return {
-    setSettings,
     read(event: MotionSample, angle: number, appleMobile: boolean, acceptShake: boolean) {
       if (!acceptShake) clearShake();
       const total = vector(event.accelerationIncludingGravity);
@@ -134,7 +122,7 @@ export function createLooseStage(initialSettings: MotionSettings = defaultMotion
         if (Math.abs(shake.z) > Math.hypot(shake.x, shake.y)) direction.y = appleMobile ? -shake.z : shake.z;
         const strength = Math.hypot(direction.x, direction.y);
         // Keep the strongest impulse until the next animation frame, even if the phone has already settled.
-        if (strength >= shakeThreshold + shakeResistance && strength > (pending?.strength ?? 0)) {
+        if (strength >= shakeThreshold && strength > (pending?.strength ?? 0)) {
           firstMovingSample = undefined;
           pending = { ...direction, strength };
         }
@@ -149,7 +137,6 @@ export function createLooseStage(initialSettings: MotionSettings = defaultMotion
       if (!stage) return;
       const span = Math.max(stage.width, stage.height);
       const launchScale = launch ? span * Math.min(maxScreensPerSecond, launch.strength - shakeResistance) / launch.strength : 0;
-      const weight = maxDownwardPull * gravityLevel;
       const changedTilt = startingTiltY !== undefined && Math.abs(tilt.y - startingTiltY) >= .5;
       for (const [id, actor] of actors) {
         if (actor.dataset.active !== 'true') continue;
@@ -171,10 +158,10 @@ export function createLooseStage(initialSettings: MotionSettings = defaultMotion
             body.y.speed = launch.y * launchScale / (launch.y < 0 ? 1 + gravityLevel : 1);
           }
         }
-        // Keep the starting height until tipped downwards or lifted against the selected weight.
-        if (changedTilt && (tilt.y >= tiltDeadZone || tilt.y + weight <= -tiltDeadZone)) body.movingVertically = true;
+        // Keep the starting height until tipped downwards or lifted against gravity.
+        if (changedTilt && (tilt.y >= tiltDeadZone || tilt.y + downwardPull <= -tiltDeadZone)) body.movingVertically = true;
         const hitX = advanceLooseAxis(body.x, tilt.x, stage.width - box.width, elapsed);
-        const hitY = advanceLooseAxis(body.y, body.movingVertically ? tilt.y + weight : 0, stage.height - box.height, elapsed);
+        const hitY = advanceLooseAxis(body.y, body.movingVertically ? tilt.y + downwardPull : 0, stage.height - box.height, elapsed);
         actor.style.setProperty('--motion-x', body.x.position + 'px');
         actor.style.setProperty('--motion-y', body.y.position + 'px');
         if (hitX || hitY) impact(id);

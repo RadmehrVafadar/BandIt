@@ -26,7 +26,6 @@ Open the localhost URL Vite prints.
 On iPhone, open the site over HTTPS, draw with your finger, and tap a sound.
 Allow motion access when prompted, then give the phone a firm shake to send the object toward a screen edge.
 Each impact plays the object's sound once, and a steady tilt lets you guide it more gently.
-Tap the sliders icon beside **Play** to adjust **Gravity** and **Shake sensitivity** while you play.
 Adding a second object starts the beat automatically.
 Removing objects until one remains returns it to motion playback.
 If motion access is denied or sensor readings are unavailable, the object plays on the beat.

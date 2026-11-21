@@ -17,12 +17,7 @@ On browsers with the Audio Session API, the mixer requests media playback when t
 
 On a touch device with motion access, a single object follows the phone automatically.
 A steady tilt accelerates it across the screen, while a firm shake sends it toward an edge.
-Open **Motion settings** beside **Play** to tune the response while the object is moving.
-**Gravity** starts at 65%.
-Raise it to make the object harder to lift and quicker to fall back down.
-**Shake sensitivity** starts at 35%.
-Lower it to require a firmer shake, or raise it to send the object farther with a lighter flick.
-Both settings are saved in this browser when local storage is available.
+Phone playback uses a fixed gravity of 13% and shake sensitivity of 5%.
 The stage keeps the strongest shake between animation frames, including a shake through the face of the phone.
 A moving object plays its own sample when it reaches an edge and stays quiet while resting there.
 Adding a second object starts the beat, and returning to one object restores motion playback.

@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { advanceLooseAxis, createLooseStage } from '../../src/phone-motion.ts';
-import type { MotionSettings } from '../../src/phone-motion.ts';
 
 test('landing exactly on either edge registers one impact, even under sustained tilt', () => {
   const elapsed = 1 / 60;
@@ -19,9 +18,8 @@ test('landing exactly on either edge registers one impact, even under sustained 
 
 const flat = { x: 0, y: 0, z: -9.8 };
 const still = { x: 0, y: 0, z: 0 };
-const weightless = { gravity: 0, sensitivity: 100 };
 
-function phone(settings?: MotionSettings) {
+function phone() {
   const properties = new Map<string, string>();
   const actor = {
     parentElement: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 390, height: 844 }) },
@@ -30,7 +28,7 @@ function phone(settings?: MotionSettings) {
     dataset: { active: 'true' },
   } as unknown as HTMLDivElement;
   const actors = new Map([['Pool', actor]]);
-  const stage = createLooseStage(settings);
+  const stage = createLooseStage();
   const hits: string[] = [];
   function read(total: DeviceMotionEventAcceleration | null, linear: DeviceMotionEventAcceleration | null,
     angle = 0, acceptShake = true) {
@@ -44,10 +42,10 @@ function phone(settings?: MotionSettings) {
     read({ x, y, z: flat.z + z }, { x, y, z });
     read(flat, still);
   }
-  return { read, move, hits, shake, clearShake: stage.clearShake, setSettings: stage.setSettings };
+  return { read, move, hits, shake, clearShake: stage.clearShake };
 }
 
-test('default weight leaves a flat phone quiet and lets a firm lateral shake hit just the side', () => {
+test('a flat phone stays quiet and a firm lateral shake hits only the side', () => {
   const stage = phone();
   stage.read(flat, still);
   assert.deepEqual(stage.move(120, 60), [166, 393]);
@@ -71,69 +69,38 @@ test('a phone already held upright does not drop the object until its tilt chang
   assert.deepEqual(stage.hits, ['Pool']);
 });
 
-test('a deliberate lift rises against the default weight, then settles at the floor with one contact', () => {
+test('13% gravity lets a shallow upward tilt lift the object and then returns it to the floor', () => {
   for (const hz of [30, 60, 120]) {
     const stage = phone();
-    stage.shake(0, 0, 8);
-    const [, rising] = stage.move(hz / 5, hz);
-    assert.ok(rising > 0 && rising < 200);
+    stage.read(flat, still);
+    // 13% supplies 0.78 m/s² of downward pull, with a 0.2 m/s² tilt dead zone.
+    stage.read({ ...flat, y: .97 }, still);
+    assert.deepEqual(stage.move(hz, hz), [166, 393]);
+    stage.read({ ...flat, y: .99 }, still);
+    const [, rising] = stage.move(hz, hz);
+    assert.ok(rising > 340 && rising < 355);
     assert.deepEqual(stage.hits, []);
+    stage.read(flat, still);
     assert.deepEqual(stage.move(hz * 3, hz), [166, 786]);
     assert.deepEqual(stage.hits, ['Pool']);
   }
 });
 
-test('raising gravity reduces lift at each setting without changing horizontal travel', () => {
-  const heights: number[] = [];
-  const sideways: number[] = [];
-  for (const gravity of [0, 35, 65, 100]) {
-    const stage = phone({ gravity, sensitivity: 35 });
-    stage.shake(7, 7);
-    const [x, y] = stage.move(2, 60);
-    heights.push(393 - y);
-    sideways.push(x);
-  }
-  assert.ok(heights.every((height, i) => height > 0 && (!i || height < heights[i - 1])));
-  assert.ok(sideways.every(x => x === sideways[0]));
-});
-
-test('sensitivity controls effort and launch speed independently of sustained tilt', () => {
-  const distances: number[] = [];
-  const tilts: number[] = [];
-  for (const sensitivity of [0, 35, 70, 100]) {
-    const stage = phone({ gravity: 65, sensitivity });
-    stage.shake(9, 0);
-    distances.push(stage.move(1, 60)[0] - 166);
-    const sameTilt = phone({ gravity: 65, sensitivity });
-    sameTilt.read({ x: 3.5, y: 0, z: -9.15 }, still);
-    tilts.push(sameTilt.move(10, 60)[0]);
-  }
-  assert.equal(distances[0], 0);
-  assert.ok(distances.every((distance, i) => !i || distance > distances[i - 1]));
-  assert.ok(tilts.every(x => x === tilts[0]));
-});
-
-test('live setting changes preserve the current object and affect its next movement', () => {
-  const stage = phone({ gravity: 0, sensitivity: 0 });
-  stage.shake(5, 0);
+test('5% shake sensitivity starts a launch at 9.625 m/s²', () => {
+  const stage = phone();
+  stage.shake(9.62, 0);
   assert.deepEqual(stage.move(6, 60), [166, 393]);
-  stage.setSettings({ gravity: 0, sensitivity: 100 });
-  stage.shake(5, 0);
+  assert.deepEqual(stage.hits, []);
+  stage.shake(9.625, 0);
   assert.deepEqual(stage.move(6, 60), [332, 393]);
-  stage.shake(0, 8);
-  assert.deepEqual(stage.move(6, 60), [332, 0]);
-  stage.setSettings({ gravity: 100, sensitivity: 0 });
-  const [x, y] = stage.move(1, 60);
-  assert.equal(x, 332);
-  assert.ok(y > 0 && y < 3);
-  assert.deepEqual(stage.move(120, 60), [332, 786]);
+  assert.deepEqual(stage.hits, ['Pool']);
 });
 
 test('a short shake and its release between frames still send an object to the wall', () => {
   for (const hz of [30, 60, 120]) {
-    const stage = phone(weightless);
+    const stage = phone();
     // A user's first sensor sample can already be a shake.
-    stage.read({ ...flat, x: 7 }, { ...still, x: 7 });
+    stage.read({ ...flat, x: 11 }, { ...still, x: 11 });
     stage.read(flat, still);
     assert.deepEqual(stage.move(hz / 10, hz), [332, 393]);
     assert.deepEqual(stage.hits, ['Pool']);
@@ -142,16 +109,17 @@ test('a short shake and its release between frames still send an object to the w
   }
 });
 
-test('a shake through the face of the screen sends the object to a vertical edge', () => {
-  const stage = phone(weightless);
+test('shakes through the face of the screen send the object to either vertical edge', () => {
+  const stage = phone();
   stage.read(flat, still);
-  stage.read({ ...flat, z: -2.8 }, { ...still, z: 7 }, 90);
+  stage.read({ ...flat, z: 5.2 }, { ...still, z: 15 }, 90);
   stage.read(flat, still, 90);
-  assert.deepEqual(stage.move(6, 60), [166, 0]);
+  for (let frame = 0; frame < 12 && !stage.hits.length; frame++) stage.move(1, 60);
+  assert.deepEqual(stage.move(0, 60), [166, 0]);
   assert.deepEqual(stage.hits, ['Pool']);
-  stage.read({ ...flat, z: -16.8 }, { ...still, z: -7 }, 90);
+  stage.read({ ...flat, z: -24.8 }, { ...still, z: -15 }, 90);
   stage.read(flat, still, 90);
-  assert.deepEqual(stage.move(10, 60), [166, 786]);
+  assert.deepEqual(stage.move(12, 60), [166, 786]);
   assert.deepEqual(stage.hits, ['Pool', 'Pool']);
 });
 

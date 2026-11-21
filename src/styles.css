@@ -76,7 +76,7 @@ button:disabled { cursor: default; color: #77777e; }
     animation: note-turn 4s steps(96, jump-none) infinite;
   }
 }
-.tool-rail, .play-button, .prediction, .board-notice, .error, .picker, .camera-dialog, .motion-settings {
+.tool-rail, .play-button, .prediction, .board-notice, .error, .picker, .camera-dialog {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--panel);
@@ -144,23 +144,6 @@ button:disabled { cursor: default; color: #77777e; }
   border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
   padding: 6px 10px; text-align: center; font-size: .875rem;
 }
-.motion-settings-trigger { height: 48px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
-.motion-settings {
-  position: fixed;
-  inset: calc(var(--dock-top) + var(--slot-height) + 10px) max(var(--edge), env(safe-area-inset-right)) auto auto;
-  width: min(19rem, calc(100% - 2 * var(--edge)));
-  max-height: calc(100% - var(--dock-top) - var(--slot-height) - var(--bottom-edge) - 10px);
-  margin: 0; padding: 12px 16px; overflow-y: auto; overscroll-behavior: contain; color: var(--ink);
-}
-.motion-settings header, .motion-setting > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.motion-settings header { margin: -6px -7px 8px 0; }
-.motion-settings h2 { font: 600 1.125rem var(--heading); }
-.motion-setting + .motion-setting { border-top: 1px solid var(--line); padding-top: 12px; }
-.motion-setting label { font-size: .9375rem; font-weight: 650; }
-.motion-setting span, .motion-setting p { color: var(--muted); font-size: .8125rem; }
-.motion-setting span { font-variant-numeric: tabular-nums; }
-.motion-setting p { margin-top: 2px; }
-.motion-setting input { display: block; width: 100%; height: 44px; margin: 0; accent-color: var(--ink); }
 [data-solo-muted=true] { --solo-opacity: .6; opacity: var(--solo-opacity); }
 .performer[data-queued=true] { opacity: calc(.55 * var(--solo-opacity, 1)); }
 .performer[data-hit=true] { filter: drop-shadow(0 1px 3px #aaa); }
@@ -288,9 +271,4 @@ button:disabled { cursor: default; color: #77777e; }
   .board-prompt img { width: 58px; height: 58px; }
   .mix { gap: 6px; margin-top: 10px; }
   .solo-icon { top: 7px; left: 7px; width: 12px; height: 12px; }
-}
-@media (max-width: 360px) {
-  .canvas-controls:has(.motion-settings-trigger) { gap: 4px; }
-  .canvas-controls:has(.motion-settings-trigger) .play-button { min-width: 44px; padding: 0; }
-  .canvas-controls:has(.motion-settings-trigger) .play-button span { display: none; }
 }

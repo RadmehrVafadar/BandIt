@@ -4,7 +4,6 @@ import { Camera, Headphones, Pause, Play, Plus, X } from 'lucide-react';
 import { createBeatboxPack } from './beatbox.ts';
 import { CameraCapture } from './CameraCapture.tsx';
 import { Drawing } from './Drawing.tsx';
-import { MotionControls } from './MotionControls.tsx';
 import { BeatEngine } from './engine.ts';
 import { emptyStage, openLibrary, readLibrary, storeStage } from './library.ts';
 import { nativePart } from './loop-score.ts';
@@ -220,14 +219,10 @@ export function App() {
       <h1 className="brand"><span className="brand-note" aria-hidden="true" />BandIt</h1>
       <Drawing disabled={!engine || full || !!loadingSound} empty={!hasObjects && !loadingSound}
         full={full} loadingSound={loadingSound} onChoose={drawObject}
-        playback={<>
-          {motion.canAdjust && <MotionControls settings={motion.settings} onChange={motion.changeSettings} />}
-          <button type="button" className="play-button" aria-label={playing ? 'Pause' : 'Play'}
-            disabled={!hasObjects && !playing} onClick={togglePlayback}>
-            {playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
-            <span>{playing ? 'Pause' : 'Play'}</span>
-          </button>
-        </>}>
+        playback={<button type="button" className="play-button" disabled={!hasObjects && !playing} onClick={togglePlayback}>
+          {playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
+          {playing ? 'Pause' : 'Play'}
+        </button>}>
         {performers.map((item, index) => {
           if (!item) return null;
           const position = item.position ?? { x: (index + 0.5) / slots.length, y: 0.36 };
