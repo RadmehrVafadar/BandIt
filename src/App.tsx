@@ -9,7 +9,7 @@ import type { DrawingSize, Instrument, Part, Position, Slots } from './music.ts'
 import { createObject, objects } from './objects.ts';
 import type { Suggestion } from './objects.ts';
 import { starters } from './starters.ts';
-import { objectSound } from './sounds.ts';
+import { objectSound, restoreHorseSounds } from './sounds.ts';
 
 function ObjectArt({ item, size }: { item: Instrument; size: number }) {
   if (item.image || !item.kind) return <img src={item.image} alt="" draggable={false} />;
@@ -49,6 +49,7 @@ export function App() {
         if (canceled) return connection.close();
         db.current = connection;
         const saved = await readLibrary(connection);
+        await restoreHorseSounds(saved.instruments);
         if (canceled) return;
         for (const item of saved.instruments) bank.current.set(item.id, item);
         const hasLegacyLibrary = saved.slots.some(id => starters.some(item => item.id === id))
@@ -145,7 +146,7 @@ export function App() {
       item.sample = sample;
       return engine.preview(item);
     }).catch(() => {
-      setError(name + ' is using its built-in sound. The generated clip was unavailable.');
+      setError(name + ' is using its built-in sound. The clip was unavailable.');
     }).finally(() => {
       add(item, true);
       preparing.current = false;

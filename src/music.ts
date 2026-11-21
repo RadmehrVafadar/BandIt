@@ -4,7 +4,7 @@ export const BPM = 100;
 export const BAR_STEPS = 16;
 export const STEP_SECONDS = 60 / BPM / 4;
 
-type Hit = readonly [step: number, level: number, semitones?: number];
+export type Hit = readonly [step: number, level: number, semitones?: number];
 
 export type Role = 'kick' | 'snare' | 'shaker' | 'melody' | 'bell' | 'cup';
 export type Part = 'pulse' | 'backbeat' | 'motion' | 'hook';
@@ -74,7 +74,7 @@ export function arrange(players: readonly Pick<Instrument, 'id' | 'role'>[], pre
   visit(0, 0, parts);
   return best;
 }
-export type Sample = { samples: Float32Array; rate: number; preserveRecording?: boolean };
+export type Sample = { samples: Float32Array; rate: number; preserveRecording?: boolean; articulation?: 'whinny' };
 export type Position = { x: number; y: number };
 export type DrawingSize = { width: number; height: number; aspect: number };
 export type Instrument = { id: string; name: string; image?: string; kind?: ObjectKind; role: Role; sample: Sample; position?: Position; drawing?: DrawingSize };
