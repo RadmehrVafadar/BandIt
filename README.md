@@ -1,16 +1,17 @@
 # BandIt
 
 BandIt turns sketches of everyday objects into a beat that plays every time they hit the floor.
-Its rainbow note logo rotates in the header and holds still when reduced motion is enabled.
+The whole screen is a black canvas with white ink and floating controls.
+The rainbow note logo holds still when reduced motion is enabled.
 
 ## Features
 
-- Draw with a mouse, finger, or pen and pick a matching illustration from the **Do you mean:** strip.
+- Draw with a mouse, finger, or pen and pick a matching illustration from **Choose a sound**.
 - Sketch objects from all 345 Quick, Draw! categories, or draw a bell or whistle.
 - Hear each object join the beat with its own sound, from a keyring jingle to a horse's whinny.
 - Layer up to four objects on a shared 100 BPM grid, each with its own rhythm and sound.
-- Use an object's headphone button to hear it on its own, then press it again to restore the mix.
-- Reopen your saved mix paused in the same browser.
+- Click an occupied slot to hear its object on its own, then click it again to restore the mix.
+- Reopen your mix paused in the same browser or click an empty slot to bring back a saved object.
 
 ## Quick start
 
@@ -37,7 +38,8 @@ The band keeps playing while a new sound loads, and uses a built-in voice if sou
 2. Choose **Keys** to replace your sketch with the keys illustration.
 3. Watch it drop to the floor and listen for the jingle when it lands.
 4. Draw a drum and choose **Drum** to add its thump on the next bar.
-5. Pause the mix or remove a layer with the **Remove** button in **Your mix**.
+5. Click **Pause** to stop playback, or use the **×** on an object's slot to remove it from the mix.
+6. Click any empty slot and choose **Keys** or **Drum** to bring the removed object back into that slot.
 
 Hear the [horse call](public/demo-sounds/horse.wav), the [horse with a drum](docs/samples/horse-and-drum.wav), or the [mix as drum, keys, and cup join](docs/samples/building-the-band.wav).
 
@@ -54,7 +56,7 @@ Multiple horses take turns whinnying.
 The mixer balances sustained sounds against short taps and leaves a little more headroom with each added object.
 BandIt saves the selected illustrations, positions, and sounds in IndexedDB for the current browser profile and origin.
 Older recorded instruments already onstage still use their images and recordings.
-You can bring other previously saved instruments back from **Saved objects**.
+The picker in each empty slot shows saved instruments that are available to add.
 
 Most suggestion drawings come from the [AutoDraw artists](https://www.autodraw.com/artists), with the source stencil credited inside each SVG.
 BandIt supplies the church, face, knife, lighter, rifle, and zigzag drawings.
@@ -71,7 +73,7 @@ npm run test:e2e
 npm run build
 ```
 
-The browser tests exercise mouse and touch drawing, sound timing, solo playback, pause and resume, persistence, and reduced motion.
+The browser tests exercise full-viewport drawing, touch gestures, saved-slot selection, sound timing, solo playback, pause and resume, persistence, and reduced motion.
 Set `BANDIT_CHROME` to use an existing Chrome or Chromium executable.
 For a local demo of the built app with live generation, run `npm run build` followed by `npm run preview`.
 Static hosting serves bundled demo clips and built-in voices; live generation requires the sound endpoint on a server with the API key.
