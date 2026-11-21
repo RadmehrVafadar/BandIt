@@ -1,6 +1,6 @@
 # BandIt
 
-BandIt turns sketches of everyday objects into a beat that plays every time they hit the floor.
+BandIt turns sketches and photos of everyday objects into a beat that plays every time they hit the floor.
 The whole screen is a black canvas with white ink and floating controls.
 The rainbow note logo holds still when reduced motion is enabled.
 
@@ -11,7 +11,7 @@ The rainbow note logo holds still when reduced motion is enabled.
 - Hear each object join the beat with its own sound, from a keyring jingle to a horse's whinny.
 - Build a ten-second groove from up to four drawings on a shared 96 BPM clock.
 - Click an occupied slot to hear its object on its own, then click it again to restore the mix.
-- Reopen your mix paused in the same browser or click an empty slot to bring back a saved object.
+- Click an empty slot to photograph an object or bring back a saved one.
 
 ## Quick start
 
@@ -22,8 +22,15 @@ npm run dev
 
 Open the localhost URL Vite prints.
 
+For camera recognition, put `GEMINI_API_KEY=your-key` in the project's ignored `.env.local` and restart Vite.
+Open an empty **+** slot, choose **Camera**, allow camera access, and select **Take photo**.
+BandIt sends that frame to Gemini and adds the identified object to the slot you chose.
+Familiar objects use their game illustration and sound.
+Other objects use the photo and a built-in sound.
+Camera access requires localhost or HTTPS.
+
 For live sounds, put `ELEVENLABS_API_KEY=your-key` in the project's ignored `.env.local` and restart Vite.
-Only the selected label goes to the local server, which requests a short one-shot from ElevenLabs.
+For sound generation, the server sends the selected label to ElevenLabs and requests a short one-shot.
 Keys, Drum, and Cup ship with generated clips in `public/demo-sounds/`.
 Run `npm run sounds:demo` before rehearsal to fill any missing clips.
 Listen to the MP3s and remove an individual clip before rerunning the command if you want another take.
@@ -52,7 +59,7 @@ After installing Playwright Chromium, run `node scripts/render-loops.ts` to rebu
 Hear the [horse call](public/demo-sounds/horse.wav), the [horse with a drum](docs/samples/horse-and-drum.wav), or the [mix as drum, keys, and cup join](docs/samples/building-the-band.wav).
 The [listening comparison](docs/samples/original-and-loops.wav) captures the previous arrangement followed by the four new loops.
 
-Recognition runs in a browser worker using [DoodleNet by Yining Shi](https://github.com/yining1023/doodleNet), trained on the [Google Quick, Draw! dataset](https://github.com/googlecreativelab/quickdraw-dataset) (CC BY 4.0).
+Sketch recognition runs in a browser worker using [DoodleNet by Yining Shi](https://github.com/yining1023/doodleNet), trained on the [Google Quick, Draw! dataset](https://github.com/googlecreativelab/quickdraw-dataset) (CC BY 4.0).
 The site serves the [model weights and matching labels](https://github.com/ml5js/ml5-data-and-models/tree/main/models/doodlenet) with the app and keeps drawings on the device.
 Close matches to the original six instrument templates remain available, and these templates provide suggestions if the model cannot load.
 The strip shows up to eight illustrated guesses in ranked order and scrolls horizontally on smaller screens.
@@ -65,7 +72,6 @@ Multiple horses take turns whinnying.
 The mixer balances sustained sounds against short taps and leaves a little more headroom with each added object.
 BandIt saves the selected illustrations, positions, and sounds in IndexedDB for the current browser profile and origin.
 Older recorded instruments already onstage still use their images and recordings.
-The picker in each empty slot shows saved instruments that are available to add.
 
 Most suggestion drawings come from the [AutoDraw artists](https://www.autodraw.com/artists), with the source stencil credited inside each SVG.
 BandIt supplies the church, face, knife, lighter, rifle, and zigzag drawings.
@@ -82,12 +88,13 @@ npm run test:e2e
 npm run build
 ```
 
-The browser tests exercise full-viewport drawing, touch gestures, saved-slot selection, sound timing, solo playback, pause and resume, persistence, and reduced motion.
+The browser tests exercise camera capture with a simulated webcam, full-viewport drawing, touch gestures, saved-slot selection, sound timing, solo playback, pause and resume, persistence, and reduced motion.
 Set `BANDIT_CHROME` to use an existing Chrome or Chromium executable.
 For a local demo of the built app with live generation, run `npm run build` followed by `npm run preview`.
 Static hosting serves bundled demo clips and built-in voices; live generation requires the sound endpoint on a server with the API key.
 
 On Vercel, set `ELEVENLABS_API_KEY` in the Production environment and redeploy to enable live generation at `/api/sounds`.
+Set `GEMINI_API_KEY` in the deployment environment and redeploy to enable camera recognition at `/api/identify`.
 The function and recognition worker import the same bundled object labels.
 The browser saves successfully decoded generated clips by object name and reuses them across drawings and reloads.
 Connect Upstash for Redis from Vercel Storage and redeploy to use the injected `KV_REST_API_URL` and `KV_REST_API_TOKEN` across users and cold starts.
