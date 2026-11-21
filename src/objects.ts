@@ -1,6 +1,7 @@
 import { Bell, CupSoda, Drum, KeyRound, Pencil, createLucideIcon } from 'lucide-react';
 import type { Instrument, Position, Role, Sample } from './music.ts';
 import type { ObjectKind } from './sketch.ts';
+import { drawingSample, drawingVoice } from './drawing-sounds.ts';
 
 const Whistle = createLucideIcon('Whistle', [
   ['path', { d: 'M3 10h9a5 5 0 1 1 0 5L3 14z', key: 'body' }],
@@ -17,26 +18,21 @@ export const objects = {
 } satisfies Record<ObjectKind, { name: string; role: Role; Icon: typeof Bell }>;
 
 const durations = { keys: 0.23, drum: 0.34, bell: 0.62, cup: 0.2, pencil: 0.105, whistle: 0.22 };
-export type Suggestion = { name: string; kind: ObjectKind };
+export type Suggestion = { name: string; kind: ObjectKind; label?: string };
 
 export function drawingFile(name: string) {
   return 'drawings/' + name.toLowerCase().replaceAll(' ', '-') + '.svg';
 }
 
 const familiarSounds: Record<string, ObjectKind> = {
-  key: 'keys', drums: 'drum', cup: 'cup', coffee_cup: 'cup', mug: 'cup', pencil: 'pencil',
-  alarm_clock: 'bell', trumpet: 'whistle', saxophone: 'whistle',
+  key: 'keys', drums: 'drum', cup: 'cup', pencil: 'pencil',
 };
 
 export function doodleSuggestion(label: string): Suggestion {
-  // Give every other category a repeatable voice from the existing sound bank.
-  const kinds = Object.keys(objects) as ObjectKind[];
-  let hash = 0;
-  for (const char of label) hash = (Math.imul(hash, 31) + char.charCodeAt(0)) >>> 0;
-  const kind = familiarSounds[label] ?? kinds[hash % kinds.length];
-  const name = label === 'key' || label === 'drums' ? objects[kind].name :
-    (label[0].toUpperCase() + label.slice(1)).replaceAll('_', ' ');
-  return { name, kind };
+  const kind = Object.hasOwn(familiarSounds, label) ? familiarSounds[label] : undefined;
+  if (kind) return { name: objects[kind].name, kind };
+  const name = (label[0].toUpperCase() + label.slice(1)).replaceAll('_', ' ');
+  return { name, kind: drawingVoice(label).kind, label };
 }
 const tone = (frequency: number, time: number) => Math.sin(2 * Math.PI * frequency * time);
 
@@ -80,7 +76,7 @@ export function objectSample(kind: ObjectKind): Sample {
   return { samples, rate };
 }
 
-export function createObject(kind: ObjectKind, position: Position): Instrument {
-  const { name, role } = objects[kind];
-  return { id: crypto.randomUUID(), kind, name, role, position, sample: objectSample(kind) };
+export function createObject({ name, kind, label }: Suggestion, position: Position): Instrument {
+  const sample = label ? drawingSample(label) : objectSample(kind);
+  return { id: crypto.randomUUID(), kind, name, role: objects[kind].role, position, sample };
 }

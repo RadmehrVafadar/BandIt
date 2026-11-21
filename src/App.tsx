@@ -129,8 +129,8 @@ export function App() {
     return true;
   }
 
-  function drawObject({ kind, name }: Suggestion, position: Position, image: string, drawing: DrawingSize) {
-    return add({ ...createObject(kind, position), name, image, drawing }, true);
+  function drawObject(suggestion: Suggestion, position: Position, image: string, drawing: DrawingSize) {
+    return add({ ...createObject(suggestion, position), image, drawing }, true);
   }
 
   function solo(id: string | null) {

@@ -30,7 +30,9 @@ Open the localhost URL Vite prints.
 Recognition runs in a browser worker using [DoodleNet by Yining Shi](https://github.com/yining1023/doodleNet), trained on the [Google Quick, Draw! dataset](https://github.com/googlecreativelab/quickdraw-dataset) (CC BY 4.0).
 The site serves the [model weights and matching labels](https://github.com/ml5js/ml5-data-and-models/tree/main/models/doodlenet) with the app and keeps drawings on the device.
 Close matches to the original six instrument templates remain available, and these templates provide suggestions if the model cannot load.
-Each recognized label uses one of six synthesized sounds.
+Each of the 345 recognized categories has its own sound, from a moon's rising chime to a bee's buzz or a truck's rev.
+Pocket Band uses [@audio/synth-sfx](https://audio.js.org/modules/synth-sfx/) to generate short effects on the device, with no audio downloads or API key.
+New classifier labels automatically get a repeatable plucked sound until they are assigned a sound family in src/drawing-sounds.ts.
 The strip shows up to eight illustrated guesses in ranked order and scrolls horizontally on smaller screens.
 Picking an illustration assigns its sound to your freehand drawing.
 Pocket Band saves the original sketches, positions, and sounds in IndexedDB for the current browser profile and origin.

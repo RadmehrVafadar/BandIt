@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { objectSample } from '../../src/objects.ts';
 
 const key = [
   [[0, 11], [4, 3], [13, 0], [22, 4], [24, 13], [20, 22], [11, 25], [3, 20], [0, 11]],
@@ -252,6 +253,32 @@ test('recognizes a star locally and restores its name and drawing', async ({ pag
   await page.reload();
   await expect(page.getByRole('button', { name: 'Remove Star' })).toBeVisible();
   await expect(onstage).toHaveAttribute('src', sketch!);
+});
+
+test('a crescent moon plays its own sound and keeps it after reload', async ({ page }) => {
+  await page.addInitScript(() => {
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (...args) {
+      if (this.buffer) {
+        const pcm = this.buffer.getChannelData(0);
+        Object.assign(window, { played: [pcm.length, ...pcm.slice(100, 132)] });
+      }
+      return start.apply(this, args);
+    };
+  });
+  const played = () => page.evaluate(() => (window as unknown as { played?: number[] }).played);
+  await page.goto('/');
+  await draw(page, [[[44, 0], [30, 3], [16, 11], [6, 24], [3, 39], [7, 54], [18, 65],
+    [33, 71], [49, 70], [60, 64], [45, 63], [32, 55], [24, 44], [21, 31],
+    [24, 18], [32, 7], [44, 0]]], 100, 80);
+  await page.getByRole('button', { name: 'Use Moon sound', exact: true }).click();
+  await expect.poll(played).toBeDefined();
+  const moon = await played();
+  const cup = objectSample('cup').samples;
+  expect(moon).not.toEqual([cup.length, ...cup.slice(100, 132)]);
+  await page.reload();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect.poll(played).toEqual(moon);
 });
 
 test('keeps basic sounds playable if the classifier cannot load', async ({ page }) => {
