@@ -74,7 +74,7 @@ test('draw keys, hear a floor hit, and layer a drum at the next bar', async ({ p
   await expect(suggestions).toHaveCount(0);
   await expect(play).toBeDisabled();
   await draw(page, [key[0]], 120, 90);
-  await expect(suggestions.getByRole('button')).toHaveCount(3);
+  await expect(suggestions.getByRole('button')).toHaveCount(8);
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(suggestions).toHaveCount(0);
   await draw(page, key, 120, 90);
@@ -197,6 +197,25 @@ test('headphones isolate one object and restore the mix', async ({ page }) => {
 test.describe('touch drawing', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce' });
 
+  test('swipes through illustrated guesses without choosing a sound', async ({ page }) => {
+    await page.goto('/');
+    await draw(page, key, 75, 80, true);
+    const strip = page.locator('.suggestion-strip');
+    await expect(strip.getByRole('button')).toHaveCount(8);
+    const box = (await strip.boundingBox())!;
+    const touch = await page.context().newCDPSession(page);
+    const x = box.x + box.width - 15;
+    const y = box.y + box.height / 2;
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    for (const distance of [20, 55, 95, 140]) {
+      await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x - distance, y }] });
+    }
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await touch.detach();
+    await expect.poll(() => strip.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
+    await expect(page.locator('[data-performer]')).toHaveCount(0);
+  });
+
   test('recognizes touch strokes and highlights a hit in place', async ({ page }) => {
     await page.goto('/');
     const keys = page.locator('[data-performer="Keys"]');
@@ -220,9 +239,19 @@ test('recognizes a star locally and restores its name and drawing', async ({ pag
   await page.goto('/');
   await draw(page, [[[30, 0], [38, 22], [60, 22], [43, 36], [50, 60], [30, 46],
     [10, 60], [17, 36], [0, 22], [22, 22], [30, 0]]], 100, 80);
-  await page.getByRole('button', { name: 'Use Star sound', exact: true }).click();
+  const suggestions = page.getByRole('group', { name: 'Sound suggestions' });
+  const star = suggestions.getByRole('button', { name: 'Use Star sound', exact: true });
+  await expect(star.locator('img')).toHaveAttribute('src', /\/drawings\/star\.svg$/);
+  await expect(star.locator('img')).toHaveJSProperty('complete', true);
+  expect(await star.locator('img').evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await star.focus();
+  await page.keyboard.press('Enter');
+  const onstage = page.locator('[data-performer="Star"] img');
+  await expect(onstage).toHaveAttribute('src', /^data:image\/png;base64,/);
+  const sketch = await onstage.getAttribute('src');
   await page.reload();
   await expect(page.getByRole('button', { name: 'Remove Star' })).toBeVisible();
+  await expect(onstage).toHaveAttribute('src', sketch!);
 });
 
 test('keeps basic sounds playable if the classifier cannot load', async ({ page }) => {

@@ -1,6 +1,8 @@
 import { bounds } from './sketch.ts';
 import type { Stroke } from './sketch.ts';
 
+export const suggestionLimit = 8;
+
 // DoodleNet expects a 28px grayscale bitmap with bright ink on black.
 export function doodlePixels(strokes: Stroke[]) {
   const canvas = document.createElement('canvas');
