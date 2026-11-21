@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { createBeatboxPack } from '../../src/beatbox.ts';
 import { drawingSample } from '../../src/drawing-sounds.ts';
 
 const key = [
@@ -433,6 +434,53 @@ async function trackNotes(page: Page) {
   });
   return () => page.evaluate(() => (window as unknown as { notes: Hit[] }).notes);
 }
+
+test('beatbox voices play from fresh slots and restore after reload', async ({ page }) => {
+  const notes = await trackNotes(page);
+  const soundRequests: string[] = [];
+  page.on('request', request => {
+    if (request.url().includes('/api/sounds')) soundRequests.push(request.url());
+  });
+  const voices = createBeatboxPack('/');
+  const slots = [3, 1, 4, 2];
+  await page.goto('/');
+  const pack = page.getByRole('group', { name: 'Beatbox', exact: true });
+  for (const [index, { name }] of voices.entries()) {
+    await page.getByRole('button', { name: 'Add an object to slot ' + slots[index] }).click();
+    await expect(pack.getByRole('button')).toHaveCount(voices.length - index);
+    await pack.getByRole('button', { name: 'Add ' + name, exact: true }).click();
+    await expect(page.locator('.mix-slot').nth(slots[index] - 1).getByRole('button', { name: 'Solo ' + name })).toBeVisible();
+  }
+
+  const playedAllVoices = async () => {
+    const hits = await notes();
+    return voices.every(({ sample }) => hits.some(hit => hit.duration === sample.samples.length / sample.rate));
+  };
+  await expect.poll(playedAllVoices, { timeout: 8000 }).toBe(true);
+  await page.reload();
+  for (const [index, { name }] of voices.entries()) {
+    await expect(page.locator('.mix-slot').nth(slots[index] - 1).getByRole('button', { name: 'Solo ' + name })).toBeEnabled();
+  }
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect.poll(playedAllVoices).toBe(true);
+  const vocal = voices.find(voice => voice.role === 'melody')!.sample;
+  await expect.poll(async () => (await notes()).some(hit =>
+    hit.duration === vocal.samples.length / vocal.rate && hit.speed !== 1)).toBe(true);
+  expect((await notes()).some(hit => hit.duration === 10)).toBe(false);
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  await page.getByRole('button', { name: 'Remove Tss Hat' }).click();
+  await page.getByRole('button', { name: 'Add an object to slot 4' }).click();
+  await expect(pack.getByRole('button')).toHaveCount(1);
+  await pack.getByRole('button', { name: 'Add Tss Hat' }).click();
+  await expect(page.getByRole('button', { name: 'Solo Tss Hat' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Remove Pf Snare' }).click();
+  await draw(page, bell, 180, 130);
+  await page.getByRole('button', { name: 'Use Bell sound', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Solo Bell' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect.poll(async () => (await notes()).some(hit => hit.duration === 10)).toBe(true);
+  expect(soundRequests).toEqual([]);
+});
 
 test('four drawings and their accompaniment share one phrase, including for a returning Original listener', async ({ page }) => {
   await page.addInitScript(() => {

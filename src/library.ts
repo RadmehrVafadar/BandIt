@@ -14,14 +14,16 @@ export function openLibrary(name = 'pocket-band'): Promise<IDBDatabase> {
   });
 }
 
-export function readLibrary(db: IDBDatabase): Promise<{ instruments: Instrument[]; slots: Slots; parts?: Map<string, Part> }> {
+export function readLibrary(
+  db: IDBDatabase, builtInIds: Iterable<string> = ['mug', 'pen'],
+): Promise<{ instruments: Instrument[]; slots: Slots; parts?: Map<string, Part> }> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(['instruments', 'stage']);
     const instruments = tx.objectStore('instruments').getAll();
     const stage = tx.objectStore('stage').get('slots');
     const parts = tx.objectStore('stage').get('parts');
     tx.oncomplete = () => {
-      const ids = new Set(['mug', 'pen', ...instruments.result.map(item => item.id)]);
+      const ids = new Set([...builtInIds, ...instruments.result.map(item => item.id)]);
       const saved: Slots = stage.result ?? (instruments.result.length ? ['mug', 'pen', null, null] : emptyStage);
       const slots = emptyStage.map((_, index) => {
         const id = saved[index];

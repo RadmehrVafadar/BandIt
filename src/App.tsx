@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Camera, Headphones, Pause, Play, Plus, X } from 'lucide-react';
+import { createBeatboxPack } from './beatbox.ts';
 import { CameraCapture } from './CameraCapture.tsx';
 import { Drawing } from './Drawing.tsx';
 import { BeatEngine } from './engine.ts';
@@ -14,6 +15,9 @@ import type { Suggestion } from './objects.ts';
 import { starters } from './starters.ts';
 import { objectSound, restoreHorseSounds } from './sounds.ts';
 import { useSolo } from './useSolo.ts';
+
+const beatbox = createBeatboxPack(import.meta.env.BASE_URL);
+const builtIns = new Map([...starters, ...beatbox].map(item => [item.id, item]));
 
 function ObjectArt({ item, size }: { item: Instrument; size: number }) {
   if (item.image || !item.kind) {
@@ -34,7 +38,7 @@ export function App() {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [, refresh] = useState(0);
-  const bank = useRef(new Map(starters.map(item => [item.id, item])));
+  const bank = useRef(new Map(builtIns));
   const db = useRef<IDBDatabase>(undefined);
   const actors = useRef(new Map<string, HTMLDivElement>());
   const entrances = useRef(new Map<string, number>());
@@ -59,7 +63,7 @@ export function App() {
         const connection = await openLibrary();
         if (canceled) return connection.close();
         db.current = connection;
-        const saved = await readLibrary(connection);
+        const saved = await readLibrary(connection, builtIns.keys());
         await restoreHorseSounds(saved.instruments);
         if (canceled) return;
         for (const item of saved.instruments) bank.current.set(item.id, item);
@@ -193,6 +197,7 @@ export function App() {
   const firstFree = slots.findIndex((_, index) => isFree(index));
   const full = firstFree < 0;
   const saved = pickerSlot === null ? [] : instruments.filter(item => !performers.includes(item));
+  const voices = pickerSlot === null ? [] : beatbox.filter(item => !performers.includes(item));
 
   return (
     <main className="workspace">
@@ -255,20 +260,25 @@ export function App() {
             if (event.newState === 'open') event.currentTarget.focus();
             else setPickerSlot(null);
           }}>
-          {pickerSlot !== null && <ul className="saved-objects">
-            <li><button type="button" disabled={!isFree(pickerSlot) || !!loadingSound} onClick={() => {
+          {pickerSlot !== null && <div className="picker-options">
+            <button type="button" disabled={!isFree(pickerSlot) || !!loadingSound} onClick={() => {
               // Unlock audio on this tap so the first object can play after recognition.
               void engine?.audio().catch(() => setError('Tap Play to start audio.'));
               picker.current?.hidePopover();
               pickerTrigger.current?.focus();
               setCameraSlot(pickerSlot);
-            }}><Camera size={28} /><span>Camera</span></button></li>
-            {saved.map(item => (
-            <li key={item.id}><button type="button" aria-label={'Add ' + item.name}
-              disabled={!isFree(pickerSlot) || !!loadingSound} onClick={() => {
-                if (add(item, pickerSlot)) picker.current?.hidePopover();
-              }}><ObjectArt item={item} size={28} /><span>{item.name}</span></button></li>
-          ))}</ul>}
+            }}><Camera size={28} /><span>Camera</span></button>
+            {[{ label: 'Beatbox', items: voices }, { label: 'Saved objects', items: saved }].map(({ label, items }) =>
+              items.length > 0 && <fieldset key={label}>
+                <legend>{label}</legend>
+                <ul className="saved-objects">{items.map(item => (
+                  <li key={item.id}><button type="button" aria-label={'Add ' + item.name}
+                    disabled={!isFree(pickerSlot) || !!loadingSound} onClick={() => {
+                      if (add(item, pickerSlot)) picker.current?.hidePopover();
+                    }}><ObjectArt item={item} size={28} /><span>{item.name}</span></button></li>
+                ))}</ul>
+              </fieldset>)}
+          </div>}
           {pickerSlot !== null && !saved.length &&
             <p>{instruments.length ? 'All your saved objects are in the mix.' : 'No saved objects yet.'}</p>}
           <button type="button" className="icon-button close-picker" aria-label="Close object picker"

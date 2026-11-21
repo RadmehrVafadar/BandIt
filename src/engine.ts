@@ -6,7 +6,8 @@ import { BAR_STEPS, STEP_SECONDS, PHRASE, arrange, bounceHeight, updateQueue } f
 import type { Change, Hit, Instrument, Part, Sample, Slots } from './music.ts';
 
 type Frame = { step: number; hits: number[]; slots: Slots };
-type Player = { part: Part; events: readonly Hit[]; stem: Sample; accent?: { sample: Sample; steps: Set<number> } };
+type Accent = { sample: Sample; steps: Set<number> };
+type Player = { part: Part; events: readonly Hit[] } & ({ stem: Sample; accent?: Accent } | { beatbox: Sample });
 type ScheduledFrame = Frame & { ensemble: Map<string, Player>; time: number; applied: Map<number, Change> };
 const LOOKAHEAD = 0.105;
 
@@ -65,6 +66,7 @@ export class BeatEngine {
       const item = this.instruments.get(id)!;
       const { sample } = item;
       const events = loopScore[loopVoice[part]];
+      if (sample.articulation === 'beatbox') return [id, { part, events, beatbox: sample }];
       const player: Player = { part, events, stem: this.loops.get(part)! };
       if (nativePart(item) === part && !sample.preserveRecording) return [id, player];
       const horseIndex = horses.indexOf(id);
@@ -203,7 +205,7 @@ export class BeatEngine {
     const beat = step % BAR_STEPS;
     const duration = (BAR_STEPS - beat) * STEP_SECONDS;
     for (const [id, player] of this.ensemble) {
-      this.hit(id, player.stem, time, player.accent ? .62 : 1, 0, phase * STEP_SECONDS, duration);
+      if ('stem' in player) this.hit(id, player.stem, time, player.accent ? .62 : 1, 0, phase * STEP_SECONDS, duration);
     }
     const { bass, strings } = this.accompaniment[Math.floor(phase / BAR_STEPS)];
     if (bass && this.ensemble.size >= 2) this.hit(null, bass, time, 1, 0, beat * STEP_SECONDS, duration);
@@ -243,18 +245,18 @@ export class BeatEngine {
           const player = this.ensemble.get(id);
           if (!player) return;
           const offset = step % PHRASE;
-          const { accent } = player;
           const event = player.events.find(([at]) => at === offset);
           if (!event) return;
           hits.push(index);
-          if (accent) this.playAccent(id, accent, offset, time, event[1]);
+          if ('beatbox' in player) this.hit(id, player.beatbox, time, event[1], event[2]);
+          else if (player.accent) this.playAccent(id, player.accent, offset, time, event[1]);
         });
       } else this.resumeStep = step + 1;
       this.frames.push({ step, time, hits, slots: this.slots, ensemble: this.ensemble, applied });
     }
   };
 
-  private playAccent(id: string, accent: NonNullable<Player['accent']>, step: number, time: number, level: number) {
+  private playAccent(id: string, accent: Accent, step: number, time: number, level: number) {
     const { sample, steps } = accent;
     const featured = steps.has(step);
     if (featured && time >= (this.signatureEnds.get(id) ?? 0)) {
