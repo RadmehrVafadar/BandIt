@@ -11,7 +11,7 @@ The rainbow note logo holds still when reduced motion is enabled.
 - Hear each object join the beat with its own sound, from a keyring jingle to a horse's whinny.
 - Build a ten-second groove from up to four drawings on a shared 96 BPM clock.
 - Click an object's headphones to toggle solo, or hold to hear it until you release.
-- Click an empty slot to photograph an object or bring back a saved one.
+- Open an empty slot to add a beatbox voice, photograph an object, or bring back a saved one.
 
 ## Quick start
 
@@ -40,6 +40,11 @@ Other labels generate on first use and reuse the server's `.sound-cache/` on sub
 The band keeps playing while a new sound loads, and uses a built-in voice if sound generation is unavailable.
 
 ## Demo
+
+For a beatbox demo, open an empty **+** slot and choose **Lip Kick** under **Beatbox**.
+Add **Pf Snare**, **Tss Hat**, and **Doo Vocal** to hear all four parts together, or mix a voice with a drawing.
+BandIt synthesizes these original sounds locally and saves the selected slots across reloads.
+Hear the full band in the [ten-second beatbox preview](docs/samples/beatbox.wav).
 
 1. Draw a key with a round head and a toothed shaft.
 2. Choose **Keys** to replace your sketch with the keys illustration.

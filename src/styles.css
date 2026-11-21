@@ -198,14 +198,17 @@ button:disabled { cursor: default; color: #77777e; }
 .picker:popover-open { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 6px; }
 .close-picker { grid-area: 1 / 2; position: sticky; top: 0; }
 .picker p { grid-column: 1 / -1; padding: 2px 6px; color: var(--muted); font-size: .875rem; }
-.saved-objects { grid-area: 1 / 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(8rem, 100%), 1fr)); gap: 5px; padding: 0; list-style: none; }
-.saved-objects li:first-child { grid-column: 1 / -1; }
-.saved-objects button {
+.picker-options { display: contents; }
+.picker-options > button { grid-area: 1 / 1; }
+.picker-options fieldset { grid-column: 1 / -1; min-width: 0; margin: 4px 0 0; padding: 0; border: 0; }
+.picker-options legend { padding: 0 0 5px 2px; color: var(--muted); font-size: .8125rem; font-weight: 650; }
+.saved-objects { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(8rem, 100%), 1fr)); gap: 5px; padding: 0; list-style: none; }
+.picker-options button {
   display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding: 6px 10px;
   border: 1px solid var(--line); border-radius: 8px; background: transparent; text-align: left; font-size: .875rem;
 }
-.saved-objects img, .saved-objects svg { flex: none; width: 28px; height: 28px; object-fit: contain; }
-.saved-objects span { overflow-wrap: anywhere; }
+.picker-options img, .picker-options svg { flex: none; width: 28px; height: 28px; object-fit: contain; }
+.picker-options span { overflow-wrap: anywhere; }
 .camera-dialog {
   width: min(28rem, calc(100% - 28px)); max-height: calc(100dvh - 28px);
   padding: 14px; color: var(--ink); overflow-y: auto;
@@ -226,7 +229,7 @@ button:disabled { cursor: default; color: #77777e; }
 }
 .camera-shutter:disabled { background: var(--hover); color: var(--muted); }
 @media (hover: hover) {
-  :is(.icon-button, .play-button, .slot-button, .suggestion, .saved-objects button):hover:enabled { background: var(--hover); color: white; }
+  :is(.icon-button, .play-button, .slot-button, .suggestion, .picker-options button):hover:enabled { background: var(--hover); color: white; }
   .slot-button:hover:enabled { border-color: #aaa; }
 }
 @media (max-width: 620px) {

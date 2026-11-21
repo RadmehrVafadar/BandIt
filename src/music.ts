@@ -54,7 +54,7 @@ export function arrange(players: readonly Musician[], previous = new Map<string,
   visit(0, 0, parts.filter(part => !occupied.has(part)));
   return best;
 }
-export type Sample = { samples: Float32Array; rate: number; preserveRecording?: boolean; articulation?: 'whinny' };
+export type Sample = { samples: Float32Array; rate: number; preserveRecording?: boolean; articulation?: 'whinny' | 'beatbox' };
 export type Position = { x: number; y: number };
 export type DrawingSize = { width: number; height: number; aspect: number };
 export type Instrument = { id: string; name: string; image?: string; kind?: ObjectKind; role: Role; sample: Sample; position?: Position; drawing?: DrawingSize };
