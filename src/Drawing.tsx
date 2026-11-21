@@ -12,11 +12,12 @@ type Props = {
   children: ReactNode;
   disabled: boolean;
   empty: boolean;
+  loadingSound: string;
   full: boolean;
   onChoose: (suggestion: Suggestion, position: Position, image: string, size: DrawingSize) => boolean;
 };
 
-export function Drawing({ children, disabled, empty, full, onChoose }: Props) {
+export function Drawing({ children, disabled, empty, full, loadingSound, onChoose }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const strokes = useRef<Stroke[]>([]);
   const activePointer = useRef<number>(undefined);
@@ -204,7 +205,7 @@ export function Drawing({ children, disabled, empty, full, onChoose }: Props) {
               ))}
             </div>
           </div>
-          : <p className="prediction" role="status">{recognition || 'Sketch an object to find its sound.'}</p>}
+          : <p className="prediction" role="status">{loadingSound ? 'Preparing sound for ' + loadingSound + '…' : recognition || 'Sketch an object to find its sound.'}</p>}
       </div>
       <div className="drawing-workspace">
         <div className="tool-rail" aria-label="Drawing tools" role="group">
