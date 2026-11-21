@@ -11,16 +11,15 @@ export async function objectSound(name: string, context: BaseAudioContext): Prom
     const sample = await decodeSample(await response.arrayBuffer(), context);
     return { ...sample, preserveRecording: true, articulation: 'whinny' };
   }
+  if (demoNames.has(label)) {
+    const response = await fetch(import.meta.env.BASE_URL + 'demo-sounds/' + label + '.mp3');
+    if (!response.ok) throw new Error('Demo clip unavailable');
+    return decodeSample(await response.arrayBuffer(), context);
+  }
   const cacheKey = import.meta.env.BASE_URL + 'object-audio/' + encodeURIComponent(label);
   const cache = await globalThis.caches?.open('bandit-object-audio-v1').catch(() => undefined);
   let generated = false;
-  let response: Response | undefined;
-  if (demoNames.has(label)) {
-    response = await fetch(import.meta.env.BASE_URL + 'demo-sounds/' + label + '.mp3');
-  }
-  if (!response?.headers.get('content-type')?.startsWith('audio/') || !response.ok) {
-    response = await cache?.match(cacheKey).catch(() => undefined);
-  }
+  let response = await cache?.match(cacheKey).catch(() => undefined);
   if (!response?.ok || !response.headers.get('content-type')?.startsWith('audio/')) {
     generated = true;
     response = await fetch(import.meta.env.BASE_URL + 'api/sounds?name=' + encodeURIComponent(label), {
@@ -34,7 +33,7 @@ export async function objectSound(name: string, context: BaseAudioContext): Prom
     const clip = new Response(encoded, { headers: { 'Content-Type': response.headers.get('content-type') ?? 'audio/mpeg' } });
     await cache?.put(cacheKey, clip).catch(() => undefined);
   }
-  return { ...sample, preserveRecording: !demoNames.has(label) };
+  return { ...sample, preserveRecording: true };
 }
 
 async function decodeSample(encoded: ArrayBuffer, context: BaseAudioContext): Promise<Sample> {

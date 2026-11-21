@@ -1,6 +1,6 @@
 import type { ObjectKind } from './sketch.ts';
 
-export const BPM = 100;
+export const BPM = 96;
 export const BAR_STEPS = 16;
 export const STEP_SECONDS = 60 / BPM / 4;
 
@@ -10,37 +10,6 @@ export type Role = 'kick' | 'snare' | 'shaker' | 'melody' | 'bell' | 'cup';
 export type Part = 'pulse' | 'backbeat' | 'motion' | 'hook';
 export const PHRASE = 4 * BAR_STEPS;
 
-function bars(...patterns: (readonly Hit[])[]): Hit[] {
-  return patterns.flatMap((events, bar) =>
-    events.map(([step, level, pitch]): Hit => [bar * BAR_STEPS + step, level, pitch]));
-}
-
-const snare: Hit[] = [[4, .76], [12, .85]];
-const offbeats: Hit[] = [[2, .50], [10, .46], [14, .35]];
-// Cm, Ab, Eb, Gm. The hook repeats its opening rhythm over the third chord.
-export const score: Record<Part, readonly Hit[]> = {
-  pulse: bars([[0, .92, 0], [8, .8, 0]],
-    [[0, .92, -4], [8, .8, -4], [14, .55, 3]],
-    [[0, .92, 3], [8, .8, 3]],
-    [[0, .92, -5], [8, .8, -5], [14, .57, -5]]),
-  backbeat: bars(snare, snare, snare, snare),
-  motion: bars(offbeats, [[2, .5], [6, .36], [10, .46]], offbeats, [[2, .5], [10, .46]]),
-  hook: bars([[3, .76, 0], [6, .64, 3], [11, .72, 7]],
-    [[1, .76, 8], [7, .62, 3], [11, .72, 0]],
-    [[3, .76, 3], [6, .64, 7], [11, .72, 10]],
-    [[1, .76, 7], [6, .64, 10], [9, .72, 2]]),
-};
-
-export function phrase(part: Part, solo: boolean): readonly Hit[] {
-  if (!solo || part === 'pulse') return score[part];
-  return score[part].flatMap((hit, i, events): Hit[] => {
-    const downbeat = Math.floor(hit[0] / BAR_STEPS) * BAR_STEPS;
-    if (i > 0 && events[i - 1][0] >= downbeat) return [hit];
-    const lead: Hit = [downbeat, .82, hit[2]];
-    return part === 'hook' ? [lead] : [lead, hit];
-  });
-}
-
 const fit: Record<Role, Record<Part, number>> = {
   kick: { pulse: 10, backbeat: 6, motion: 3, hook: 1 },
   snare: { pulse: 6, backbeat: 10, motion: 5, hook: 1 },
@@ -49,13 +18,24 @@ const fit: Record<Role, Record<Part, number>> = {
   bell: { pulse: 4, backbeat: 6, motion: 5, hook: 9 },
   melody: { pulse: 2, backbeat: 3, motion: 4, hook: 10 },
 };
-export function arrange(players: readonly Pick<Instrument, 'id' | 'role'>[], previous = new Map<string, Part>()) {
-  let best = new Map<string, Part>();
-  let bestScore = -Infinity;
+type Musician = Pick<Instrument, 'id' | 'role'> & { nativePart?: Part };
+
+export function arrange(players: readonly Musician[], previous = new Map<string, Part>()) {
   const chosen = new Map<string, Part>();
   const parts: Part[] = ['pulse', 'hook', 'backbeat', 'motion'];
+  // Keep the four recorded instruments on their own stems, including in smaller lineups.
+  for (const part of parts) {
+    const matches = players.filter(player => player.nativePart === part);
+    const owner = matches.find(player => previous.get(player.id) === part) ?? matches[0];
+    if (owner) chosen.set(owner.id, part);
+  }
+  const remaining = players.filter(player => !chosen.has(player.id));
+  if (!remaining.length) return chosen;
+  const occupied = new Set(chosen.values());
+  let best = new Map<string, Part>();
+  let bestScore = -Infinity;
   function visit(index: number, total: number, available: Part[]) {
-    if (index === players.length) {
+    if (index === remaining.length) {
       if (players.length > 1 && available.includes('pulse')) return;
       if (total > bestScore) {
         bestScore = total;
@@ -63,7 +43,7 @@ export function arrange(players: readonly Pick<Instrument, 'id' | 'role'>[], pre
       }
       return;
     }
-    const { id, role } = players[index];
+    const { id, role } = remaining[index];
     for (const part of available) {
       chosen.set(id, part);
       visit(index + 1, total + fit[role][part] + (previous.get(id) === part ? 1.5 : 0),
@@ -71,7 +51,7 @@ export function arrange(players: readonly Pick<Instrument, 'id' | 'role'>[], pre
     }
     chosen.delete(id);
   }
-  visit(0, 0, parts);
+  visit(0, 0, parts.filter(part => !occupied.has(part)));
   return best;
 }
 export type Sample = { samples: Float32Array; rate: number; preserveRecording?: boolean; articulation?: 'whinny' };

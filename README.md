@@ -8,7 +8,7 @@ Its rainbow note logo rotates in the header and holds still when reduced motion 
 - Draw with a mouse, finger, or pen and pick a matching illustration from the **Do you mean:** strip.
 - Sketch objects from all 345 Quick, Draw! categories, or draw a bell or whistle.
 - Hear each object join the beat with its own sound, from a keyring jingle to a horse's whinny.
-- Layer up to four objects on a shared 100 BPM grid, each with its own rhythm and sound.
+- Build a ten-second groove from up to four drawings on a shared 96 BPM clock.
 - Use an object's headphone button to hear it on its own, then press it again to restore the mix.
 - Reopen your saved mix paused in the same browser.
 
@@ -27,7 +27,7 @@ Keys, Drum, and Cup ship with generated clips in `public/demo-sounds/`.
 Run `npm run sounds:demo` before rehearsal to fill any missing clips.
 Listen to the MP3s and remove an individual clip before rerunning the command if you want another take.
 Horse plays without an API key using a trimmed [public-domain field recording by Hü](https://commons.wikimedia.org/wiki/File:Wiehern.ogg).
-The app plays a new clip once before adding it to the beat.
+Each drawing joins on a bar boundary, and you hear its sound inside the groove.
 Other labels generate on first use and reuse the server's `.sound-cache/` on subsequent requests.
 The band keeps playing while a new sound loads, and uses a built-in voice if sound generation is unavailable.
 
@@ -37,19 +37,28 @@ The band keeps playing while a new sound loads, and uses a built-in voice if sou
 2. Choose **Keys** to replace your sketch with the keys illustration.
 3. Watch it drop to the floor and listen for the jingle when it lands.
 4. Draw a drum and choose **Drum** to add its thump on the next bar.
-5. Pause the mix or remove a layer with the **Remove** button in **Your mix**.
+5. Add **Cup** for a hollow backbeat and **Bell** for a pitched hook.
+6. Remove Bell, draw a horse, and listen for its neigh over the melody.
+7. Use the horse's headphones to hear its whole layer on its own.
+
+Drum, Keys, Cup, and Bell each have a recorded four-bar part and play without an API key.
+Other drawings take an available part and play their own sound at its natural pitch over a quieter backing.
+Short taps can follow the whole rhythm, while long sounds like a starting engine get room to finish.
+If a loop file is unavailable, the browser recreates its arrangement from the built-in instrument.
+After installing Playwright Chromium, run `node scripts/render-loops.ts` to rebuild the four WAV files from the shared score.
 
 Hear the [horse call](public/demo-sounds/horse.wav), the [horse with a drum](docs/samples/horse-and-drum.wav), or the [mix as drum, keys, and cup join](docs/samples/building-the-band.wav).
+The [listening comparison](docs/samples/original-and-loops.wav) captures the previous arrangement followed by the four new loops.
 
 Recognition runs in a browser worker using [DoodleNet by Yining Shi](https://github.com/yining1023/doodleNet), trained on the [Google Quick, Draw! dataset](https://github.com/googlecreativelab/quickdraw-dataset) (CC BY 4.0).
 The site serves the [model weights and matching labels](https://github.com/ml5js/ml5-data-and-models/tree/main/models/doodlenet) with the app and keeps drawings on the device.
 Close matches to the original six instrument templates remain available, and these templates provide suggestions if the model cannot load.
 The strip shows up to eight illustrated guesses in ranked order and scrolls horizontally on smaller screens.
 Picking an illustration adds it to the stage where you drew and gives it the selected object's sound.
-Try one bell to hear a four-bar melody, then add three more to hear a bass line, clipped backbeat, and muted offbeats underneath it.
+Try one bell to hear the melody, then draw more bells to add the pulse, backbeat, and offbeats.
 The bass and melody move through C minor, A-flat major, E-flat major, and G minor before returning to C.
-A lone object marks the start of each bar, and lineup changes land on the next downbeat.
-The horse plays soft hoofbeats between full-length calls and calls less often when other objects join.
+Lineup changes land on the next downbeat.
+Horse plays soft hoofbeats and a plucked string between full-length calls, and calls less often when other objects join.
 Multiple horses take turns whinnying.
 The mixer balances sustained sounds against short taps and leaves a little more headroom with each added object.
 BandIt saves the selected illustrations, positions, and sounds in IndexedDB for the current browser profile and origin.
