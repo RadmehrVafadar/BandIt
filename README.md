@@ -33,7 +33,7 @@ The band keeps playing while a new sound loads, and uses a built-in voice if sou
 ## Demo
 
 1. Draw a key with a round head and a toothed shaft.
-2. Choose the **Keys** illustration to give your original sketch a jingle.
+2. Choose **Keys** to replace your sketch with the keys illustration.
 3. Watch it drop to the floor and listen for the jingle when it lands.
 4. Draw a drum and choose **Drum** to add its thump on the next bar.
 5. Pause the mix or remove a layer with the **Remove** button in **Your mix**.
@@ -42,10 +42,10 @@ Recognition runs in a browser worker using [DoodleNet by Yining Shi](https://git
 The site serves the [model weights and matching labels](https://github.com/ml5js/ml5-data-and-models/tree/main/models/doodlenet) with the app and keeps drawings on the device.
 Close matches to the original six instrument templates remain available, and these templates provide suggestions if the model cannot load.
 The strip shows up to eight illustrated guesses in ranked order and scrolls horizontally on smaller screens.
-Picking an illustration assigns its sound to your freehand drawing.
+Picking an illustration adds it to the stage where you drew and gives it the selected object's sound.
 Try drawing four bells to hear a damped low pulse, a clipped backbeat, muted offbeats, and a ringing C-minor hook.
 Every lineup uses the same two-bar score, with parts assigned to suit the sounds and changes landing on the next bar.
-BandIt saves the original sketches, positions, and sounds in IndexedDB for the current browser profile and origin.
+BandIt saves the selected illustrations, positions, and sounds in IndexedDB for the current browser profile and origin.
 Older recorded instruments already onstage still use their images and recordings.
 You can bring other previously saved instruments back from **Saved objects**.
 
