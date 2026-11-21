@@ -20,7 +20,7 @@ const fit: Record<Role, Record<Part, number>> = {
 };
 type Musician = Pick<Instrument, 'id' | 'role'> & { nativePart?: Part };
 
-export function arrange(players: readonly Musician[], previous = new Map<string, Part>()) {
+export function arrange(players: readonly Musician[], previous: ReadonlyMap<string, Part> = new Map()) {
   const chosen = new Map<string, Part>();
   const parts: Part[] = ['pulse', 'hook', 'backbeat', 'motion'];
   // Keep the four recorded instruments on their own stems, including in smaller lineups.

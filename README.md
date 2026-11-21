@@ -81,6 +81,7 @@ With two or more drawings, a quieter bass joins on the offbeat in the second bar
 With three or four, soft strings enter halfway through the phrase and release before it repeats.
 Soloing a drawing mutes both backing parts.
 Lineup changes land on the next downbeat.
+For how sound and stage animation stay in sync across lineup changes and pauses, see the [playback guide](docs/playback.md).
 Horse plays soft hoofbeats and a plucked string between full-length calls, and calls less often when other objects join.
 Multiple horses take turns whinnying.
 The mixer balances sustained sounds against short taps and leaves a little more headroom with each added object.
