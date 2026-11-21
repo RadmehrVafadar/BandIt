@@ -31,6 +31,8 @@ Recognition runs in a browser worker using [DoodleNet by Yining Shi](https://git
 The site serves the [model weights and matching labels](https://github.com/ml5js/ml5-data-and-models/tree/main/models/doodlenet) with the app and keeps drawings on the device.
 Close matches to the original six instrument templates remain available, and these templates provide suggestions if the model cannot load.
 Each recognized label uses one of six synthesized sounds.
+The whistle, bell, and cup outline a C major chord and take turns attacking within the bar.
+Objects with the same rhythm share its playback level, and soloing one restores its individual level.
 The app shows three suggestions ranked by similarity.
 Pocket Band saves the original sketches, positions, and sounds in IndexedDB for the current browser profile and origin.
 Older recorded instruments already onstage still use their images and recordings.

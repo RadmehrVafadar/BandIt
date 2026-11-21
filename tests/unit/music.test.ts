@@ -30,6 +30,12 @@ test('cancel a join or removal by keeping the current slot assignment', () => {
   assert.equal(pending.size, 0);
 });
 
+test('the whistle agrees with the E bell and the pitched voices leave room for each attack', () => {
+  assert.ok(patterns.melody.every(([, , pitch]) => [0, 4, 7].includes(pitch % 12)));
+  const attacks = [patterns.melody, patterns.bell, patterns.cup].flatMap(events => events.map(([step]) => step));
+  assert.equal(new Set(attacks).size, attacks.length);
+});
+
 test('bounce reaches the floor at each hit and returns to its original height between hits', () => {
   assert.equal(bounceHeight('shaker', 14, 16), 1);
   assert.equal(bounceHeight('shaker', 17, 16), 0.75);

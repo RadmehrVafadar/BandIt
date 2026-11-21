@@ -63,7 +63,8 @@ export function objectSample(kind: ObjectKind): Sample {
         sound = 0.45 * tone(659.25, t) * Math.exp(-7 * t) + 0.24 * tone(1770, t) * Math.exp(-16 * t);
         break;
       case 'cup':
-        sound = (0.49 * tone(386, t) + 0.25 * tone(838, t)) * Math.exp(-31 * t) + 0.14 * snap * Math.exp(-95 * t);
+        // A G4 body with a short inharmonic rim keeps the cup pitched but ceramic.
+        sound = 0.49 * tone(392, t) * Math.exp(-31 * t) + 0.25 * tone(838, t) * Math.exp(-65 * t) + 0.14 * snap * Math.exp(-95 * t);
         break;
       case 'pencil':
         sound = (snap * 0.36 + 0.38 * tone(1331, t)) * Math.exp(-79 * t);
