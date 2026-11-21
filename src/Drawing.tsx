@@ -188,14 +188,15 @@ export function Drawing({ children, disabled, empty, full, onChoose }: Props) {
         {suggestions.length
           ? <div className="prediction" role="group" aria-label="Sound suggestions">
             <span>{recognition || 'Did you draw'}</span>
-            {suggestions.map(({ kind, name }) => {
+            {suggestions.map(suggestion => {
+              const { kind, name } = suggestion;
               const { Icon } = objects[kind];
               return <button type="button" key={name} className="suggestion" aria-label={'Use ' + name + ' sound'}
-                disabled={drawing || disabled} onClick={() => choose({ kind, name })}
+                disabled={drawing || disabled} onClick={() => choose(suggestion)}
                 onPointerUp={event => {
                   if (event.pointerType !== 'touch') return;
                   const target = document.elementFromPoint(event.clientX, event.clientY);
-                  if (event.currentTarget.contains(target)) choose({ kind, name });
+                  if (event.currentTarget.contains(target)) choose(suggestion);
                 }}><Icon size={19} aria-hidden="true" />{name}</button>;
             })}
           </div>
