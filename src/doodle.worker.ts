@@ -2,15 +2,12 @@ import '@tensorflow/tfjs-backend-cpu';
 import { setBackend, tensor4d, tidy } from '@tensorflow/tfjs-core';
 import type { Tensor } from '@tensorflow/tfjs-core';
 import { loadLayersModel } from '@tensorflow/tfjs-layers';
+import labels from './doodle-labels.json';
 import { suggestionLimit } from './doodle.ts';
 
 async function load(base: string) {
   await setBackend('cpu');
-  const [model, response] = await Promise.all([
-    loadLayersModel(base + 'model.json'), fetch(base + 'class_names.txt'),
-  ]);
-  if (!response.ok) throw new Error('Missing labels');
-  const labels = (await response.text()).trim().split(/\r?\n/);
+  const model = await loadLayersModel(base + 'model.json');
   if (labels.length !== model.outputs[0].shape.at(-1)) throw new Error('Invalid labels');
   return { model, labels };
 }
