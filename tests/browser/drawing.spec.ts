@@ -70,6 +70,47 @@ async function draw(page: Page, strokes: number[][][], xOffset: number, yOffset:
   await touchSession?.detach();
 }
 
+for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
+  test('draws white ink to the viewport edges at width ' + viewport.width, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto('/');
+    const canvas = page.getByLabel('Draw an object');
+    await expect(canvas).toHaveAttribute('data-disabled', 'false');
+    expect(await canvas.boundingBox()).toEqual({ x: 0, y: 0, ...viewport });
+    await expect(canvas).toHaveCSS('background-color', 'rgb(0, 0, 0)');
+    await expect(page.getByText(/\bBPM\b|\d\s*\/\s*4 objects|Your mix/i)).toHaveCount(0);
+    const emptySlots = page.getByRole('button', { name: /Add a saved object to slot/ });
+    await expect(emptySlots).toHaveCount(4);
+    expect(await emptySlots.evaluateAll(buttons => buttons.every(button => {
+      const box = button.getBoundingClientRect();
+      return document.elementFromPoint(box.x + box.width / 2, innerHeight - 48) instanceof HTMLCanvasElement;
+    }))).toBe(true);
+    await expect(page.locator('.beat-rail')).toHaveCount(0);
+
+    for (const y of [3, viewport.height - 3]) {
+      await draw(page, [[[0, 0], [12, 0]]], 3, y);
+      const ink = await canvas.evaluate((element: HTMLCanvasElement, row) => {
+        const scale = element.width / element.clientWidth;
+        return [...element.getContext('2d')!.getImageData(Math.floor(8 * scale), Math.floor(row * scale), 1, 1).data];
+      }, y);
+      expect(ink).toEqual([255, 255, 255, 255]);
+    }
+    await page.getByRole('button', { name: 'Clear sketch' }).click();
+    const slot = page.getByRole('button', { name: 'Add a saved object to slot 3' });
+    await slot.focus();
+    await page.keyboard.press('Enter');
+    const picker = page.getByRole('dialog', { name: 'Saved objects' });
+    await expect(picker).toBeVisible();
+    await expect(picker.getByRole('heading')).toHaveCount(0);
+    await expect(slot).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByText('No saved objects yet.')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(slot).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
+  });
+}
+
 test('draw keys, hear a floor hit, and layer a drum at the next bar', async ({ page }) => {
   await page.addInitScript(() => {
     const hits: { at: number; start: number; voice: number }[] = [];
@@ -91,11 +132,11 @@ test('draw keys, hear a floor hit, and layer a drum at the next bar', async ({ p
     };
     function capturePose() {
       const keys = document.querySelector('[data-performer="Keys"]');
-      const floor = document.querySelector('.floor');
+      const canvas = document.querySelector('canvas');
       const timestamp = audio?.getOutputTimestamp();
-      if (keys && floor && timestamp?.performanceTime && timestamp.contextTime !== undefined) {
+      if (keys && canvas && timestamp?.performanceTime && timestamp.contextTime !== undefined) {
         const at = timestamp.contextTime + (performance.now() - timestamp.performanceTime) / 1000;
-        poses.push({ at, gap: floor.getBoundingClientRect().top - keys.getBoundingClientRect().bottom });
+        poses.push({ at, gap: canvas.getBoundingClientRect().bottom - keys.getBoundingClientRect().bottom });
       }
       requestAnimationFrame(capturePose);
     }
@@ -107,7 +148,7 @@ test('draw keys, hear a floor hit, and layer a drum at the next bar', async ({ p
   const pause = page.getByRole('button', { name: 'Pause', exact: true });
   const keys = page.locator('[data-performer="Keys"]');
   const drums = page.locator('[data-performer="Drum"]');
-  const rail = page.locator('.beat-rail');
+  const hitCount = () => page.evaluate(() => (window as unknown as { hits: unknown[] }).hits.length);
   await expect(suggestions).toHaveCount(0);
   await expect(play).toBeDisabled();
   await draw(page, [key[0]], 120, 90);
@@ -129,7 +170,7 @@ test('draw keys, hear a floor hit, and layer a drum at the next bar', async ({ p
     return poses.some(pose => pose.gap < 25 && hits.some(hit => Math.abs(hit.at - pose.at) < 0.045));
   })).toBe(true);
 
-  await expect.poll(async () => Number(await rail.getAttribute('data-step')) % 16, { timeout: 5000 }).toBeLessThan(6);
+  await expect(keys).toHaveAttribute('data-hit', 'true', { timeout: 5000 });
   await draw(page, drum, 280, 65);
   await suggestions.getByRole('button', { name: 'Use Drum sound' }).click();
   await expect(drums).toHaveAttribute('data-active', 'false');
@@ -145,21 +186,29 @@ test('draw keys, hear a floor hit, and layer a drum at the next bar', async ({ p
 
   await pause.click();
   const frozen = await keys.boundingBox();
-  const pausedStep = await rail.getAttribute('data-step');
+  const pausedHits = await hitCount();
   await expect(play).toBeVisible();
   await page.waitForTimeout(250);
   expect(await keys.boundingBox()).toEqual(frozen);
-  await expect(rail).toHaveAttribute('data-step', pausedStep!);
+  expect(await hitCount()).toBe(pausedHits);
   await play.click();
-  await expect.poll(async () => Number(await rail.getAttribute('data-step'))).toBeGreaterThan(Number(pausedStep));
+  await expect.poll(hitCount).toBeGreaterThan(pausedHits);
   await page.getByRole('button', { name: 'Remove Keys' }).click();
   await expect(keys).toHaveCount(0, { timeout: 5000 });
   await page.reload();
   await expect(play).toBeEnabled();
   await expect(drums).toHaveAttribute('data-active', 'true');
   await expect(drums.locator('img')).toHaveAttribute('src', drumDrawing!);
-  await expect(rail).toHaveAttribute('data-step', '-1');
-  await expect(page.getByText('Saved objects')).toBeVisible();
+  const emptyFirstSlot = page.getByRole('button', { name: 'Add a saved object to slot 1' });
+  await page.getByRole('button', { name: 'Add a saved object to slot 4' }).click();
+  const picker = page.getByRole('dialog', { name: 'Saved objects' });
+  await expect(picker.getByRole('button', { name: 'Add Drum' })).toHaveCount(0);
+  await picker.getByRole('button', { name: 'Add Keys' }).click();
+  await expect(picker).toBeHidden();
+  await expect(emptyFirstSlot).toBeEnabled();
+  await page.reload();
+  await expect(page.locator('.mix-slot').nth(3).getByRole('button', { name: 'Solo Keys' })).toBeVisible();
+  await expect(emptyFirstSlot).toBeEnabled();
   const originalX = (await drums.boundingBox())!.x;
   await page.setViewportSize({ width: 750, height: 840 });
   expect((await drums.boundingBox())!.x).not.toBe(originalX);
@@ -263,7 +312,7 @@ test.describe('touch drawing', () => {
 
   test('swipes through illustrated guesses without choosing a sound', async ({ page }) => {
     await page.goto('/');
-    await draw(page, key, 75, 80, true);
+    await draw(page, key, 75, 270, true);
     const strip = page.locator('.suggestion-strip');
     await expect(strip.getByRole('button')).toHaveCount(8);
     const box = (await strip.boundingBox())!;
@@ -283,19 +332,19 @@ test.describe('touch drawing', () => {
   test('recognizes touch strokes and highlights a hit in place', async ({ page }) => {
     await page.goto('/');
     const keys = page.locator('[data-performer="Keys"]');
-    await draw(page, key, 75, 80, true);
+    await draw(page, key, 75, 270, true);
     // Chromium's raw touch emulation suppresses immediately following tap gestures.
     await page.waitForTimeout(550);
     await page.getByRole('button', { name: 'Use Keys sound' }).tap();
     await expect(keys).toHaveAttribute('data-hit', 'true');
     const position = await keys.boundingBox();
-    await draw(page, drum, 175, 175, true);
+    await draw(page, drum, 175, 340, true);
     await page.waitForTimeout(550);
     await page.getByRole('button', { name: 'Use Drum sound' }).tap();
     await expect(page.locator('[data-performer="Drum"]')).toHaveAttribute('data-active', 'true', { timeout: 5000 });
     expect(await keys.boundingBox()).toEqual(position);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
-    await expect(page.locator('.floor')).toBeInViewport();
+    expect(await page.getByLabel('Draw an object').boundingBox()).toEqual({ x: 0, y: 0, width: 390, height: 844 });
   });
 });
 
@@ -355,7 +404,6 @@ test('four drawings layer on one phrase, including for a returning Original list
   await page.goto('/');
   await expect(page.getByRole('group', { name: 'Playback style' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^(Loops|Original)$/ })).toHaveCount(0);
-  await expect(page.locator('.tempo')).toHaveText('96 BPM');
   for (const [index, [name, sketch]] of ([['Drum', drum], ['Keys', key], ['Cup', cup], ['Bell', bell]] as const).entries()) {
     await draw(page, sketch, 40 + index * 115, 90);
     await page.getByRole('button', { name: 'Use ' + name + ' sound', exact: true }).click();
@@ -375,8 +423,9 @@ test('four drawings layer on one phrase, including for a returning Original list
   await page.getByRole('button', { name: 'Play', exact: true }).click();
   await expect.poll(async () => new Set((await notes()).slice(count).map(note => note.voice)).size).toBe(3);
   await page.reload();
-  await expect(page.locator('.tempo')).toHaveText('96 BPM');
   await expect(page.locator('[data-performer]')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect.poll(async () => (await notes())[0]?.duration).toBe(2.5);
 });
 
 test('a drawn horse neighs over its loop, plays hoofbeats between calls and keeps its voice after reload', async ({ page }) => {
@@ -552,7 +601,9 @@ test('a missing recorded stem still plays its ten-second arrangement at 96 BPM',
   await draw(page, drum, 110, 80);
   await page.getByRole('button', { name: 'Use Drum sound', exact: true }).click();
   await expect.poll(async () => (await notes())[0]?.duration).toBe(10);
-  await expect(page.locator('.tempo')).toHaveText('96 BPM');
+  await expect.poll(async () => (await notes()).length).toBeGreaterThanOrEqual(2);
+  const [first, second] = await notes();
+  expect(second.at - first.at).toBeCloseTo(2.5, 5);
 });
 
 test('keeps basic sounds playable if the classifier cannot load', async ({ page }) => {

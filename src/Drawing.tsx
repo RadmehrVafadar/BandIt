@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent, ReactNode } from 'react';
-import { PencilLine, Trash2, Undo2 } from 'lucide-react';
+import { Trash2, Undo2 } from 'lucide-react';
 import type { DrawingSize, Position } from './music.ts';
 import { bounds, templateScores } from './sketch.ts';
 import type { Stroke } from './sketch.ts';
@@ -10,6 +10,7 @@ import type { Suggestion } from './objects.ts';
 
 type Props = {
   children: ReactNode;
+  playback: ReactNode;
   disabled: boolean;
   empty: boolean;
   loadingSound: string;
@@ -21,7 +22,7 @@ function illustrationUrl(suggestion: Suggestion) {
   return import.meta.env.BASE_URL + drawingFile(suggestion.name);
 }
 
-export function Drawing({ children, disabled, empty, full, loadingSound, onChoose }: Props) {
+export function Drawing({ children, playback, disabled, empty, full, loadingSound, onChoose }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const strokes = useRef<Stroke[]>([]);
   const activePointer = useRef<number>(undefined);
@@ -82,7 +83,7 @@ export function Drawing({ children, disabled, empty, full, loadingSound, onChoos
     context.lineWidth = weight;
     context.lineCap = 'round';
     context.lineJoin = 'round';
-    context.strokeStyle = '#463196';
+    context.strokeStyle = '#fff';
     for (const stroke of strokes.current) {
       context.beginPath();
       const first = stroke[0];
@@ -178,53 +179,49 @@ export function Drawing({ children, disabled, empty, full, loadingSound, onChoos
     if (onChoose(suggestion, position, illustrationUrl(suggestion), size)) clear();
   }
 
+  const notice = loadingSound ? 'Preparing sound for ' + loadingSound + '…'
+    : full ? 'The mix is full. Remove an object to draw another.' : recognition;
+
   return (
     <>
-      <div className="board-tools">
-        <h2 id="board-title" className="sr-only">Drawing board</h2>
-        {suggestions.length
-          ? <div className="prediction" role="group" aria-label="Sound suggestions">
-            <span className="prediction-label">Do you mean:{recognition && <small>{recognition}</small>}</span>
-            <div className="suggestion-strip">
-              {suggestions.map(suggestion => (
-                <button type="button" key={suggestion.name} className="suggestion"
-                  aria-label={'Use ' + suggestion.name + ' sound'} disabled={drawing || disabled}
-                  onClick={() => choose(suggestion)}
-                  onPointerUp={event => {
-                    if (event.pointerType !== 'touch') return;
-                    const target = document.elementFromPoint(event.clientX, event.clientY);
-                    if (event.currentTarget.contains(target)) choose(suggestion);
-                  }}>
-                  <img src={illustrationUrl(suggestion)} alt="" draggable={false} />
-                  <span>{suggestion.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          : <p className="prediction" role="status">{loadingSound ? 'Preparing sound for ' + loadingSound + '…' : recognition || 'Sketch an object to find its sound.'}</p>}
+      <div className="drawing-area">
+        <canvas ref={canvas} aria-label="Draw an object" onPointerDown={start} onPointerMove={move}
+          onPointerUp={finish} onPointerCancel={finish} onLostPointerCapture={finish}
+          data-disabled={disabled} />
+        {empty && !count && <div className="board-prompt">
+          <img className="sketch-art" src={import.meta.env.BASE_URL + drawingFile('Pencil')} alt="" draggable={false} />
+          <strong>Draw an object</strong>
+          <span>Try a key or a drum, then choose its sound.</span>
+        </div>}
+        {children}
       </div>
-      <div className="drawing-workspace">
+      <div className="canvas-controls">
         <div className="tool-rail" aria-label="Drawing tools" role="group">
-          <span className="current-tool" title="Freehand drawing"><PencilLine size={20} aria-label="Freehand drawing" /></span>
-          <button type="button" className="secondary" aria-label="Undo" title="Undo" disabled={!count || drawing} onClick={undo}><Undo2 size={20} /></button>
-          <button type="button" className="secondary" aria-label="Clear sketch" title="Clear sketch" disabled={!count || drawing} onClick={clear}><Trash2 size={19} /></button>
+          <button type="button" className="icon-button" aria-label="Undo" title="Undo" disabled={!count || drawing} onClick={undo}><Undo2 size={19} /></button>
+          <button type="button" className="icon-button" aria-label="Clear sketch" title="Clear sketch" disabled={!count || drawing} onClick={clear}><Trash2 size={18} /></button>
         </div>
-        <div className="board">
-          <div className="drawing-area">
-            <canvas ref={canvas} aria-label="Draw an object" onPointerDown={start} onPointerMove={move}
-              onPointerUp={finish} onPointerCancel={finish} onLostPointerCapture={finish}
-              data-disabled={disabled} />
-            {empty && !count && <div className="board-prompt">
-              <PencilLine size={30} strokeWidth={1.5} />
-              <strong>Draw your first object</strong>
-              <span>Try a key or a drum.</span>
-            </div>}
-            {children}
-          </div>
-          <div className="floor" aria-hidden="true"><span>Floor</span></div>
-        </div>
+        {playback}
       </div>
-      {full && <p className="board-notice">The mix is full. Remove an object to draw another.</p>}
+      {!drawing && (suggestions.length && !disabled
+        ? <div className="prediction" role="group" aria-label="Sound suggestions">
+          <div className="prediction-label">Choose a sound{recognition && <small>{recognition}</small>}</div>
+          <div className="suggestion-strip">
+            {suggestions.map(suggestion => (
+              <button type="button" key={suggestion.name} className="suggestion"
+                aria-label={'Use ' + suggestion.name + ' sound'}
+                onClick={() => choose(suggestion)}
+                onPointerUp={event => {
+                  if (event.pointerType !== 'touch') return;
+                  const target = document.elementFromPoint(event.clientX, event.clientY);
+                  if (event.currentTarget.contains(target)) choose(suggestion);
+                }}>
+                <img className="sketch-art" src={illustrationUrl(suggestion)} alt="" draggable={false} />
+                <span>{suggestion.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        : notice && <p className="board-notice" role="status">{notice}</p>)}
     </>
   );
 }
