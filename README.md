@@ -72,7 +72,8 @@ Static hosting serves bundled demo clips and built-in voices; live generation re
 On Vercel, set `ELEVENLABS_API_KEY` in the Production environment and redeploy to enable live generation at `/api/sounds`.
 The function and recognition worker import the same bundled object labels.
 The browser saves successfully decoded generated clips by object name and reuses them across drawings and reloads.
-To share generated clips across users and Vercel cold starts, set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` for the same Redis database and redeploy.
+Connect Upstash for Redis from Vercel Storage and redeploy to use the injected `KV_REST_API_URL` and `KV_REST_API_TOKEN` across users and cold starts.
+For manual setup, set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` for the same Redis database and redeploy.
 Concurrent requests for an uncached object share one generation, and completed clips have no expiry.
 Without Redis, each warm instance keeps its own temporary server cache.
 New car drawings use a starter motor cranking, catching and idling, and the sequencer preserves the generated recording.

@@ -4,7 +4,10 @@ import { soundHandler } from '../server/handler.ts';
 
 import { redisSoundCache } from '../server/shared-cache.ts';
 
-const { UPSTASH_REDIS_REST_URL: url, UPSTASH_REDIS_REST_TOKEN: token } = process.env;
+const { UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, KV_REST_API_URL, KV_REST_API_TOKEN } = process.env;
+const [url, token] = UPSTASH_REDIS_REST_URL || UPSTASH_REDIS_REST_TOKEN
+  ? [UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN]
+  : [KV_REST_API_URL, KV_REST_API_TOKEN];
 if (Boolean(url) !== Boolean(token)) throw new Error('Incomplete Redis sound cache configuration');
 const shared = url && token ? redisSoundCache(url, token) : undefined;
 

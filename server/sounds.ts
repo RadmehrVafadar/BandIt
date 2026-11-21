@@ -27,6 +27,7 @@ export function soundBank(directory: string, labels: Set<string>, key: string, r
     if (!response.ok) throw new Error('ElevenLabs returned HTTP ' + response.status);
     const audio = Buffer.from(await response.arrayBuffer());
     if (!audio.length || !response.headers.get('content-type')?.startsWith('audio/')) throw new Error('Expected audio from ElevenLabs.');
+    console.info('ElevenLabs generated object sound:', name);
     return audio;
   }
 

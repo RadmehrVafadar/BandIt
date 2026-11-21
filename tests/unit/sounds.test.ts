@@ -61,3 +61,13 @@ test('independent servers share one paid generation and a cold server reads the 
   assert.deepEqual(await server()('car', generate), clips[0]);
   assert.equal(generations, 1);
 });
+
+test('Vercel Marketplace credentials must be a complete pair', async t => {
+  const previous = { ...process.env };
+  t.after(() => { process.env = previous; });
+  delete process.env.UPSTASH_REDIS_REST_URL;
+  delete process.env.UPSTASH_REDIS_REST_TOKEN;
+  delete process.env.KV_REST_API_TOKEN;
+  process.env.KV_REST_API_URL = 'https://redis.invalid';
+  await assert.rejects(import('../../api/sounds.ts'), /Incomplete Redis/);
+});
