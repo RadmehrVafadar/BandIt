@@ -7,7 +7,7 @@ Its rainbow note logo rotates in the header and holds still when reduced motion 
 
 - Draw with a mouse, finger, or pen and pick a matching illustration from the **Do you mean:** strip.
 - Sketch objects from all 345 Quick, Draw! categories, or draw a bell or whistle.
-- Hear an ElevenLabs sound effect for the selected object when it joins the beat.
+- Hear each object join the beat with its own sound, from a keyring jingle to a horse's whinny.
 - Layer up to four objects on a shared 100 BPM grid, each with its own rhythm and sound.
 - Use an object's headphone button to hear it on its own, then press it again to restore the mix.
 - Reopen your saved mix paused in the same browser.
@@ -26,6 +26,7 @@ Only the selected label goes to the local server, which requests a short one-sho
 Keys, Drum, and Cup ship with generated clips in `public/demo-sounds/`.
 Run `npm run sounds:demo` before rehearsal to fill any missing clips.
 Listen to the MP3s and remove an individual clip before rerunning the command if you want another take.
+Horse plays without an API key using a trimmed [public-domain field recording by Hü](https://commons.wikimedia.org/wiki/File:Wiehern.ogg).
 The app plays a new clip once before adding it to the beat.
 Other labels generate on first use and reuse the server's `.sound-cache/` on subsequent requests.
 The band keeps playing while a new sound loads, and uses a built-in voice if sound generation is unavailable.
@@ -38,6 +39,8 @@ The band keeps playing while a new sound loads, and uses a built-in voice if sou
 4. Draw a drum and choose **Drum** to add its thump on the next bar.
 5. Pause the mix or remove a layer with the **Remove** button in **Your mix**.
 
+Hear the [horse call](public/demo-sounds/horse.wav), the [horse with a drum](docs/samples/horse-and-drum.wav), or the [mix as drum, keys, and cup join](docs/samples/building-the-band.wav).
+
 Recognition runs in a browser worker using [DoodleNet by Yining Shi](https://github.com/yining1023/doodleNet), trained on the [Google Quick, Draw! dataset](https://github.com/googlecreativelab/quickdraw-dataset) (CC BY 4.0).
 The site serves the [model weights and matching labels](https://github.com/ml5js/ml5-data-and-models/tree/main/models/doodlenet) with the app and keeps drawings on the device.
 Close matches to the original six instrument templates remain available, and these templates provide suggestions if the model cannot load.
@@ -46,7 +49,9 @@ Picking an illustration adds it to the stage where you drew and gives it the sel
 Try one bell to hear a four-bar melody, then add three more to hear a bass line, clipped backbeat, and muted offbeats underneath it.
 The bass and melody move through C minor, A-flat major, E-flat major, and G minor before returning to C.
 A lone object marks the start of each bar, and lineup changes land on the next downbeat.
-The mixer balances the level of sustained sounds against short taps and leaves room for their peaks.
+The horse plays soft hoofbeats between full-length calls and calls less often when other objects join.
+Multiple horses take turns whinnying.
+The mixer balances sustained sounds against short taps and leaves a little more headroom with each added object.
 BandIt saves the selected illustrations, positions, and sounds in IndexedDB for the current browser profile and origin.
 Older recorded instruments already onstage still use their images and recordings.
 You can bring other previously saved instruments back from **Saved objects**.

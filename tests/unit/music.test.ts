@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BAR_STEPS, STEP_SECONDS, barBoundary, bounceHeight, PHRASE, arrange, phrase, score, updateQueue } from '../../src/music.ts';
 import type { Change, Role } from '../../src/music.ts';
+import { horseCallSteps } from '../../src/horse.ts';
 
 test('the next unscheduled bar lands on the 100 BPM grid', () => {
   assert.deepEqual([0, 1, 15, 16, 17, 32].map(barBoundary), [0, 16, 16, 16, 32, 32]);
@@ -83,4 +84,24 @@ test('solo and ensemble bounces follow the phrase including entrance and wrap', 
   }
   assert.equal(bounceHeight(score.motion, 17, 16), .75);
   assert.equal(bounceHeight(score.motion, 20, 16), 1);
+});
+
+test('horses leave room for the band and take turns through the loop boundary', () => {
+  const solo = phrase('hook', true);
+  assert.deepEqual([...horseCallSteps(solo, 0, 1, 1)], [0, 16, 32, 48]);
+  assert.deepEqual([...horseCallSteps(score.hook, 0, 1, 4)], [3, 35]);
+  for (const count of [2, 3, 4]) {
+    const players = Array.from({ length: count }, (_, i) => ({ id: String(i), role: 'melody' as const }));
+    const parts = arrange(players);
+    const calls = [...parts.values()].flatMap((part, i) => {
+      const turns = [...horseCallSteps(score[part], i, count, count)];
+      assert.ok(turns.length > 0 && turns.length < score[part].length);
+      return turns;
+    }).sort((a, b) => a - b);
+    assert.deepEqual(calls.map(step => Math.floor(step / BAR_STEPS)), [0, 1, 2, 3]);
+    calls.forEach((step, i) => {
+      const next = calls[i + 1] ?? calls[0] + PHRASE;
+      assert.ok((next - step) * STEP_SECONDS >= 1.7);
+    });
+  }
 });

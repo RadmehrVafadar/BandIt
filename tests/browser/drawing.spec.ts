@@ -17,6 +17,13 @@ const bell = [
 const cup = [
   [[0, 0], [9, 48], [36, 48], [45, 0], [0, 0]], [[42, 9], [60, 9], [63, 21], [42, 33]],
 ];
+const horse = [
+  [[0, 19], [5, 14], [10, 10], [13, 2], [16, 8], [20, 1], [20, 10], [27, 25], [40, 26],
+    [53, 24], [58, 27], [61, 33], [62, 45], [65, 47], [66, 38], [65, 29], [62, 25]],
+  [[59, 34], [57, 41], [60, 57], [57, 58], [51, 45], [49, 42], [48, 55], [45, 56],
+    [45, 42], [30, 42], [26, 41], [25, 56], [22, 56], [21, 42], [19, 56], [16, 56],
+    [18, 34], [15, 24], [10, 20], [5, 22], [0, 19]],
+];
 
 test('BandIt shows a rotating note and respects reduced motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
@@ -296,6 +303,71 @@ test('recognizes a star locally and restores its name and drawing', async ({ pag
   await page.reload();
   await expect(page.getByRole('button', { name: 'Remove Star' })).toBeVisible();
   await expect(onstage).toHaveAttribute('src', illustration!);
+});
+
+async function trackNotes(page: Page) {
+  type Hit = { at: number; duration: number; speed: number };
+  await page.addInitScript(() => {
+    const notes: Hit[] = [];
+    Object.assign(window, { notes });
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (when = 0, ...rest) {
+      notes.push({ at: when, duration: this.buffer!.duration, speed: this.playbackRate.value });
+      return start.call(this, when, ...rest);
+    };
+  });
+  return () => page.evaluate(() => (window as unknown as { notes: Hit[] }).notes);
+}
+
+test('a drawn horse previews its bundled neigh, plays hoofbeats between calls and keeps its voice after reload', async ({ page }) => {
+  const notes = await trackNotes(page);
+  const generated: string[] = [];
+  page.on('request', request => {
+    if (request.url().includes('/api/sounds?name=horse')) generated.push(request.url());
+  });
+  await page.goto('/');
+  await draw(page, horse, 110, 80);
+  await page.getByRole('button', { name: 'Use Horse sound', exact: true }).click();
+  await expect.poll(async () => (await notes())[0]?.duration).toBeGreaterThan(1.4);
+  const [preview] = await notes();
+  await expect.poll(async () => (await notes()).filter(hit => hit.duration === preview.duration).length,
+    { timeout: 8000 }).toBeGreaterThanOrEqual(3);
+  const [, first, second] = (await notes()).filter(hit => hit.duration === preview.duration);
+  expect(second.at - first.at).toBeGreaterThanOrEqual(preview.duration);
+  expect((await notes()).some(hit => hit.at > first.at && hit.at < second.at && hit.duration < .3)).toBe(true);
+  expect((await notes()).every(hit => hit.speed === 1)).toBe(true);
+  expect(generated).toEqual([]);
+  await page.reload();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect.poll(async () => (await notes())[0]?.duration).toBe(preview.duration);
+});
+
+test('a saved drawing recovers the neigh while a personal recording also named Horse keeps its audio', async ({ page }) => {
+  const notes = await trackNotes(page);
+  await page.goto('/');
+  await expect(page.getByLabel('Draw an object')).toHaveAttribute('data-disabled', 'false');
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('pocket-band');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const tx = db.transaction(['instruments', 'stage'], 'readwrite');
+    const store = tx.objectStore('instruments');
+    const sample = { samples: Float32Array.from({ length: 800 }, (_, i) => .2 * Math.sin(i / 7)), rate: 8000 };
+    store.put({ id: 'drawn', name: 'Horse', kind: 'whistle', role: 'melody', sample });
+    store.put({ id: 'recorded', name: 'Horse', role: 'kick', sample: { ...sample, preserveRecording: true } });
+    tx.objectStore('stage').put(['drawn', 'recorded', null, null], 'slots');
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error);
+    });
+    db.close();
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect.poll(async () => (await notes()).some(hit => hit.duration > 1.4 && hit.speed === 1)).toBe(true);
+  await expect.poll(async () => (await notes()).some(hit => Math.abs(hit.duration - .1) < .0001)).toBe(true);
 });
 
 test('a crescent moon plays its own sound and keeps it after reload', async ({ page }) => {

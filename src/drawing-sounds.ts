@@ -2,8 +2,9 @@ import sfx from '@audio/synth-sfx';
 import type { SfxOptions } from '@audio/synth-sfx';
 import type { Sample } from './music.ts';
 import type { ObjectKind } from './sketch.ts';
+import { hoofbeats } from './horse.ts';
 
-// The kind supplies the beat and suggestion icon. The synth patch supplies the sound.
+// The kind supplies the beat and suggestion icon. Most drawings use the family's synth patch.
 type Voice = { kind: ObjectKind; patch: SfxOptions & { freq: number; release: number } };
 type Family = [labels: string, kind: ObjectKind, patch: Voice['patch']];
 
@@ -86,6 +87,7 @@ export function drawingVoice(label: string): Voice {
 }
 
 export function drawingSample(label: string): Sample {
+  if (label === 'horse') return hoofbeats();
   if (label === 'car') {
     const rate = 44100;
     const samples = new Float32Array(Math.round(rate * .94));

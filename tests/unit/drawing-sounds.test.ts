@@ -29,3 +29,13 @@ test('new categories get their own repeatable sounds automatically', () => {
   const other = render('snow_globe').samples;
   assert.ok(other.some((value, i) => value !== first[i]));
 });
+
+test('the built-in horse rhythm has two distinct hoof strikes at their natural pitch', () => {
+  const { samples, rate, preserveRecording } = render('horse');
+  assert.equal(preserveRecording, true);
+  const peak = (from: number, to: number) => samples.subarray(Math.round(from * rate), Math.round(to * rate))
+    .reduce((loudest, value) => Math.max(loudest, Math.abs(value)), 0);
+  assert.ok(peak(0, .035) > .18);
+  assert.ok(peak(.06, .085) < .04);
+  assert.ok(peak(.09, .13) > .12);
+});

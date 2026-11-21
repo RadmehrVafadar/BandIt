@@ -1,9 +1,10 @@
 import { partSample } from './part-sample.ts';
+import { hoofbeats, horseCallSteps } from './horse.ts';
 import { BAR_STEPS, STEP_SECONDS, PHRASE, arrange, bounceHeight, phrase, updateQueue } from './music.ts';
 import type { Change, Instrument, Part, Sample, Slots } from './music.ts';
 
 type Frame = { step: number; hits: number[]; slots: Slots };
-type Player = { part: Part; events: ReturnType<typeof phrase>; sample: Sample };
+type Player = { part: Part; events: ReturnType<typeof phrase>; sample: Sample; whinnySteps?: Set<number> };
 type ScheduledFrame = Frame & { ensemble: Map<string, Player>; time: number; applied: Map<number, Change> };
 const LOOKAHEAD = 0.105;
 
@@ -51,12 +52,16 @@ export class BeatEngine {
 
   private buildEnsemble(previous?: Map<string, Part>) {
     const parts = this.assign(this.slots, previous);
+    const horses = [...parts.keys()].filter(id => this.instruments.get(id)!.sample.articulation === 'whinny');
     return new Map(Array.from(parts, ([id, part]) => {
       const { sample } = this.instruments.get(id)!;
       const variants = this.variants.get(sample) ?? new Map<Part, Sample>();
       if (!variants.has(part)) variants.set(part, partSample(sample, part));
       this.variants.set(sample, variants);
-      return [id, { part, events: phrase(part, parts.size === 1), sample: variants.get(part)! }];
+      const events = phrase(part, parts.size === 1);
+      const horseIndex = horses.indexOf(id);
+      const whinnySteps = horseIndex < 0 ? undefined : horseCallSteps(events, horseIndex, horses.length, parts.size);
+      return [id, { part, events, sample: variants.get(part)!, whinnySteps }];
     }));
   }
 
@@ -159,8 +164,9 @@ export class BeatEngine {
   }
 
   private audibleLevel(id: string, level: number) {
-    if (this.soloId === null) return level;
-    return this.soloId === id ? level : 0;
+    if (this.soloId !== null) return this.soloId === id ? level : 0;
+    // Leave a little more headroom for overlapping tails with each new player.
+    return level / (1 + .08 * Math.max(0, this.ensemble.size - 1));
   }
 
   private hit(id: string, sample: Sample, time: number, level: number, pitch: number, ended?: () => void) {
@@ -212,7 +218,9 @@ export class BeatEngine {
           const event = player?.events.find(([offset]) => offset === step % PHRASE);
           if (!player || !event) return;
           const [, level, pitch = 0] = event;
-          this.hit(id, player.sample, time, level, player.sample.preserveRecording ? 0 : pitch);
+          const clop = player.whinnySteps?.has(event[0]) === false;
+          const sample = clop ? hoofbeats() : player.sample;
+          this.hit(id, sample, time, clop ? level * .58 : level, sample.preserveRecording ? 0 : pitch);
           hits.push(index);
         });
       }
