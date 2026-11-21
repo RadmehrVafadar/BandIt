@@ -7,12 +7,14 @@ import { BeatEngine } from './engine.ts';
 import { emptyStage, openLibrary, readLibrary, storeStage } from './library.ts';
 import { nativePart } from './loop-score.ts';
 import { loadLoops } from './loops.ts';
+import { STEP_SECONDS } from './music.ts';
 import type { DrawingSize, Instrument, Part, Position, Slots } from './music.ts';
 import { objectLabels } from './object-labels.ts';
 import { createObject, doodleSuggestion, drawingFile, objects } from './objects.ts';
 import type { Suggestion } from './objects.ts';
 import { starters } from './starters.ts';
 import { objectSound, restoreHorseSounds } from './sounds.ts';
+import { createStagePhysics } from './stage-physics.ts';
 import { useSolo } from './useSolo.ts';
 
 function ObjectArt({ item, size }: { item: Instrument; size: number }) {
@@ -50,6 +52,7 @@ export function App() {
     let canceled = false;
     let instance: BeatEngine | undefined;
     const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const movePerformers = createStagePhysics();
 
     async function load() {
       const loadingLoops = loadLoops();
@@ -78,11 +81,14 @@ export function App() {
         setHits(frame.hits);
         setSlots(frame.slots);
       }, (position, landed) => {
+        const active: HTMLDivElement[] = [];
         for (const [id, actor] of actors.current) {
           const height = instance!.height(id, position, entrances.current.get(id) ?? 0);
           const rise = landed.includes(id) ? 0 : height;
-          actor.style.setProperty('--rise', String(motion.matches ? 1 : rise));
+          actor.style.setProperty('--rise', String(rise));
+          if (actor.dataset.active === 'true') active.push(actor);
         }
+        movePerformers(active, position * STEP_SECONDS, motion.matches);
       }, loops, parts);
       setEngine(instance);
     }

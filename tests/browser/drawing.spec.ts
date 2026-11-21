@@ -229,6 +229,27 @@ test('four distinct sounds fill the stage and removing a layer frees room', asyn
   await expect(page.getByLabel('Draw an object')).toHaveAttribute('data-disabled', 'false', { timeout: 5000 });
 });
 
+test('nearby performers bump sideways without sliding off the stage', async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 600 });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/');
+  const keys = page.locator('[data-performer="Keys"]');
+  const drumActor = page.locator('[data-performer="Drum"]');
+  await draw(page, key, 2, 120);
+  await page.getByRole('button', { name: 'Use Keys sound' }).click();
+  await draw(page, drum, 25, 220);
+  await page.getByRole('button', { name: 'Use Drum sound' }).click();
+  await expect(drumActor).toHaveAttribute('data-active', 'false');
+  const originalX = (await drumActor.boundingBox())!.x;
+
+  await expect(drumActor).toHaveAttribute('data-active', 'true', { timeout: 5000 });
+  await expect.poll(async () => (await drumActor.boundingBox())!.x, { timeout: 10000 }).toBeGreaterThan(originalX + 20);
+  expect((await keys.boundingBox())!.x).toBeGreaterThanOrEqual(0);
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect.poll(async () => (await drumActor.boundingBox())!.x).toBeCloseTo(originalX, 1);
+});
+
 test('four identical bells play distinct parts on the same floor grid', async ({ page }) => {
   await page.goto('/');
   for (const x of [35, 150, 265, 380]) {

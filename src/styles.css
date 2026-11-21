@@ -119,9 +119,12 @@ button:disabled { cursor: default; color: #77777e; }
   position: absolute;
   left: clamp(var(--radius-x), var(--x), 100% - var(--radius-x));
   bottom: 0;
-  transform: translate(-50%, calc(-1 * var(--rise) * var(--travel)));
+  transform: translate(calc(-50% + var(--slide, 0px)), calc(-1 * var(--rise) * var(--travel)));
   width: var(--width); height: var(--height);
   display: grid; place-items: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .performer { transform: translate(-50%, calc(-1 * var(--travel))); }
 }
 .performer[data-drawing=true] {
   --width: min(var(--art-width), var(--art-height) * var(--art-aspect), 100cqw - 2px, (100cqh - 20px) * var(--art-aspect));
