@@ -47,6 +47,16 @@ async function addVoice(page: Page, name = 'Lip Kick', slot = 2) {
   return performer;
 }
 
+function flick(page: Page, strength: number) {
+  return page.evaluate(strength => {
+    for (const x of [strength, 0]) {
+      window.dispatchEvent(Object.assign(new Event('devicemotion'), {
+        acceleration: { x, y: 0, z: 0 }, accelerationIncludingGravity: { x, y: 0, z: -9.8 },
+      }));
+    }
+  }, strength);
+}
+
 function playedSounds(page: Page) {
   return page.evaluate(() => (window as unknown as { sounds: number[] }).sounds);
 }
@@ -107,6 +117,7 @@ test('denying motion permission keeps beat playback available', async ({ page })
   const canPlay = await page.evaluate(() => 'AudioContext' in window);
   const kick = await addVoice(page);
   await expect(page.getByText(/motion access was denied/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Motion settings', exact: true })).toHaveCount(0);
   await expect(kick).not.toHaveAttribute('data-loose', '');
   if (canPlay) await expect.poll(async () => (await playedSounds(page)).length).toBeGreaterThan(0);
 });
@@ -140,13 +151,7 @@ test('a short shake that finishes between frames plays one edge hit', async ({ p
   const kick = await addVoice(page);
   await tilt(page, 0, 0);
   await expect(kick).toHaveAttribute('data-loose', '');
-  await page.evaluate(() => {
-    for (const x of [8, 0]) {
-      window.dispatchEvent(Object.assign(new Event('devicemotion'), {
-        acceleration: { x, y: 0, z: 0 }, accelerationIncludingGravity: { x, y: 0, z: -9.8 },
-      }));
-    }
-  });
+  await flick(page, 8);
   await expect.poll(() => playedSounds(page), { timeout: 650, intervals: [16, 32] })
     .toEqual([createBeatboxPack('/')[0].sample.samples.length]);
   const box = (await kick.boundingBox())!;
@@ -163,6 +168,7 @@ test('adding a second object starts the band and removing it restores motion', a
   await expect(kick).toHaveAttribute('data-loose', '');
   await addVoice(page, 'Pf Snare', 1);
   await expect(page.locator('[data-loose]')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Motion settings', exact: true })).toHaveCount(0);
   const voices = createBeatboxPack('/').slice(0, 2).map(item => item.sample.samples.length);
   await expect.poll(() => playedSounds(page)).toEqual(expect.arrayContaining(voices));
   await page.getByRole('button', { name: 'Remove Pf Snare' }).tap();
@@ -189,4 +195,91 @@ test('restoring a band only requests motion when one object remains', async ({ p
   await expect(page.locator('html')).toHaveAttribute('data-gesture', 'true');
   await tilt(page, 0, 0);
   await expect(page.locator('[data-performer="Lip Kick"]')).toHaveAttribute('data-loose', '');
+});
+
+test('motion sliders remember the feel of one object after a reload', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await openPhone(page, 'granted');
+  const settings = page.getByRole('button', { name: 'Motion settings', exact: true });
+  await expect(settings).toHaveCount(0);
+  await addVoice(page);
+  await tilt(page, 0, 0);
+  await expect(settings).toBeVisible();
+  await settings.tap();
+  const panel = page.getByRole('dialog', { name: 'Motion settings' });
+  const gravity = panel.getByRole('slider', { name: 'Gravity', exact: true });
+  const sensitivity = panel.getByRole('slider', { name: 'Shake sensitivity', exact: true });
+  await expect(gravity).toHaveValue('65');
+  await expect(sensitivity).toHaveValue('35');
+  const bounds = (await panel.boundingBox())!;
+  expect(bounds.x).toBeGreaterThanOrEqual(0);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(320);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(568);
+  const track = (await gravity.boundingBox())!;
+  await gravity.tap({ position: { x: track.width * .85, y: track.height / 2 } });
+  await sensitivity.tap({ position: { x: track.width * .15, y: track.height / 2 } });
+  const savedGravity = await gravity.inputValue();
+  const savedSensitivity = await sensitivity.inputValue();
+  expect(Number(savedGravity)).toBeGreaterThan(75);
+  expect(Number(savedSensitivity)).toBeLessThan(25);
+  await expect(panel.getByText(savedGravity + '%', { exact: true })).toBeVisible();
+  await expect(panel.getByText(savedSensitivity + '%', { exact: true })).toBeVisible();
+  await panel.getByRole('button', { name: 'Close motion settings' }).tap();
+  await expect(panel).toBeHidden();
+  expect(await page.evaluate(() => document.elementFromPoint(160, 400)?.tagName)).toBe('CANVAS');
+
+  await page.reload();
+  await settings.tap();
+  await expect(gravity).toHaveValue(savedGravity);
+  await expect(sensitivity).toHaveValue(savedSensitivity);
+});
+
+test('both motion sliders change the next shake or tilt during playback', async ({ page }) => {
+  test.skip(!await page.evaluate(() => 'AudioContext' in window), 'This browser build has no Web Audio output.');
+  await openPhone(page, 'granted');
+  const kick = await addVoice(page);
+  await tilt(page, 0, 0);
+  await expect(kick).toHaveAttribute('data-loose', '');
+  const before = await kick.boundingBox();
+  const settings = page.getByRole('button', { name: 'Motion settings', exact: true });
+  await expect(settings).toBeVisible();
+  await settings.tap();
+  const sensitivity = page.getByRole('slider', { name: 'Shake sensitivity', exact: true });
+  await sensitivity.press('Home');
+  await flick(page, 4);
+  await page.waitForTimeout(200);
+  expect(await kick.boundingBox()).toEqual(before);
+  expect(await playedSounds(page)).toEqual([]);
+
+  await sensitivity.press('End');
+  await flick(page, 4);
+  await expect.poll(() => playedSounds(page)).toEqual([createBeatboxPack('/')[0].sample.samples.length]);
+  const box = (await kick.boundingBox())!;
+  expect(box.x + box.width).toBeCloseTo(390);
+
+  const gravity = page.getByRole('slider', { name: 'Gravity', exact: true });
+  await gravity.press('End');
+  await tilt(page, 0, 3);
+  await page.waitForTimeout(200);
+  expect((await kick.boundingBox())!.y).toBeCloseTo(box.y);
+  await gravity.press('Home');
+  await expect.poll(async () => (await kick.boundingBox())!.y).toBeLessThan(box.y - 20);
+  await expect(page.locator('html')).toHaveAttribute('data-motion-requests', '1');
+});
+
+test('unavailable preference storage still allows tuning for the current session', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('Storage is blocked', 'SecurityError'); } });
+  });
+  await openPhone(page, 'granted');
+  await addVoice(page);
+  await tilt(page, 0, 0);
+  const settings = page.getByRole('button', { name: 'Motion settings', exact: true });
+  await settings.tap();
+  const gravity = page.getByRole('slider', { name: 'Gravity', exact: true });
+  await expect(gravity).toHaveValue('65');
+  await gravity.press('Home');
+  await page.getByRole('button', { name: 'Close motion settings' }).tap();
+  await settings.tap();
+  await expect(gravity).toHaveValue('0');
 });

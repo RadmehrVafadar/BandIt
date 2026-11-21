@@ -1,9 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { BeatEngine } from './engine.ts';
-import { createLooseStage } from './phone-motion.ts';
+import { createLooseStage, defaultMotionSettings } from './phone-motion.ts';
+import type { MotionSettings } from './phone-motion.ts';
 
 type MotionSensor = typeof DeviceMotionEvent & { requestPermission?(): Promise<PermissionState> };
+const settingsKey = 'bandit-motion-settings';
+
+function readSettings(): MotionSettings {
+  const settings = { ...defaultMotionSettings };
+  try {
+    const saved = JSON.parse(localStorage.getItem(settingsKey) ?? 'null');
+    for (const key of ['gravity', 'sensitivity'] as const) {
+      const value = saved?.[key];
+      if (Number.isInteger(value) && value >= 0 && value <= 100) settings[key] = value;
+    }
+  } catch { /* Use the defaults when browser storage is blocked or unreadable. */ }
+  return settings;
+}
 
 export function usePhoneMotion(
   engine: BeatEngine | undefined, actors: RefObject<Map<string, HTMLDivElement>>, playing: boolean, objectCount: number,
@@ -14,7 +28,8 @@ export function usePhoneMotion(
   const single = supported && objectCount === 1;
   const [access, setAccess] = useState<PermissionState | 'asking'>(motion?.requestPermission ? 'prompt' : 'granted');
   const [signal, setSignal] = useState<'waiting' | 'ready' | 'unavailable'>('waiting');
-  const [stage] = useState(createLooseStage);
+  const [settings, setSettings] = useState(readSettings);
+  const [stage] = useState(() => createLooseStage(settings));
   const requested = useRef(false);
   const active = single && access === 'granted' && signal === 'ready';
 
@@ -78,8 +93,16 @@ export function usePhoneMotion(
     }
   }
 
+  function changeSettings(next: MotionSettings) {
+    stage.setSettings(next);
+    setSettings(next);
+    try { localStorage.setItem(settingsKey, JSON.stringify(next)); }
+    catch { /* The controls still work for this session when storage is blocked. */ }
+  }
+
   let message = '';
   if (single && access === 'denied') message = 'Motion access was denied. You can still play the beat.';
   if (single && access === 'granted' && signal === 'unavailable') message = 'Motion data is unavailable. You can still play the beat.';
-  return { requestAccess, message };
+  const canAdjust = single && access !== 'denied' && signal !== 'unavailable';
+  return { requestAccess, message, canAdjust, settings, changeSettings };
 }
