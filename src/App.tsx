@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { AudioLines, Pause, Play, X } from 'lucide-react';
+import { AudioLines, Headphones, Pause, Play, X } from 'lucide-react';
 import { Drawing } from './Drawing.tsx';
 import { BeatEngine } from './engine.ts';
 import { emptyStage, openLibrary, readLibrary, storeStage } from './library.ts';
@@ -23,6 +23,7 @@ export function App() {
   const [playing, setPlaying] = useState(false);
   const [step, setStep] = useState(-1);
   const [hits, setHits] = useState<number[]>([]);
+  const [soloId, setSoloId] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [, refresh] = useState(0);
@@ -132,8 +133,14 @@ export function App() {
     return add({ ...createObject(kind, position), image, drawing }, true);
   }
 
+  function solo(id: string | null) {
+    engine?.setSolo(id);
+    setSoloId(id);
+  }
+
   function remove(index: number, item: Instrument) {
     if (!engine) return;
+    if (soloId === item.id) solo(null);
     engine.change(index, null);
     persist();
     setStatus(engine.running && slots[index] ? item.name + ' leaves on the next bar.' : item.name + ' removed from the mix.');
@@ -201,18 +208,17 @@ export function App() {
                   {!planned[index] ? <small>Leaving on the next bar</small>
                     : !slots[index] ? <small>Joins on the next bar</small> : null}
                 </span>
-                <button type="button" className="remove-button" aria-label={'Remove ' + item.name}
-                  disabled={!planned[index]} onClick={() => remove(index, item)}><X size={17} /></button>
+                <div className="mix-actions">
+                  <button type="button" className="mix-button" aria-label={'Solo ' + item.name} title={'Solo ' + item.name}
+                    aria-pressed={soloId === item.id} disabled={!planned[index]}
+                    onClick={() => solo(soloId === item.id ? null : item.id)}><Headphones size={17} /></button>
+                  <button type="button" className="mix-button" aria-label={'Remove ' + item.name}
+                    disabled={!planned[index]} onClick={() => remove(index, item)}><X size={17} /></button>
+                </div>
               </div>
               : <div key={index} className="mix-slot empty-slot">Empty</div>)}
           </div>
         </section>
-        <div className="draw-guide">
-          <strong>Try drawing</strong>
-          <ul>{Object.entries(objects).map(([kind, { Icon, name, role }]) =>
-            <li key={kind} className={role}><Icon aria-hidden="true" size={17} /> {name}</li>,
-          )}</ul>
-        </div>
         {!!saved.length && <details className="saved"><summary>Saved objects</summary>
           <ul>{saved.map(item => <li key={item.id}><button type="button" className="secondary"
             disabled={full} onClick={() => add(item)}><ObjectArt item={item} size={17} /> Add {item.name}</button></li>)}</ul>

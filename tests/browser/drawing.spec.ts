@@ -142,6 +142,58 @@ test('four distinct sounds fill the stage and removing a layer frees room', asyn
   await expect(page.getByLabel('Draw an object')).toHaveAttribute('data-disabled', 'false', { timeout: 5000 });
 });
 
+test('headphones isolate one object and restore the mix', async ({ page }) => {
+  await page.addInitScript(() => {
+    const audioHits: { drum: boolean; audible: boolean }[] = [];
+    Object.assign(window, { audioHits });
+    const connect = AudioNode.prototype.connect;
+    AudioNode.prototype.connect = function (this: AudioNode, destination: AudioNode | AudioParam, ...ports: number[]) {
+      if (this instanceof AudioBufferSourceNode && destination instanceof GainNode) {
+        audioHits.push({ drum: (this.buffer?.duration ?? 0) > 0.3, audible: destination.gain.value > 0 });
+      }
+      return Reflect.apply(connect, this, [destination, ...ports]);
+    } as typeof connect;
+  });
+  const readHits = () => page.evaluate(() => (window as unknown as {
+    audioHits: { drum: boolean; audible: boolean }[];
+  }).audioHits);
+  async function expectMix(keysAudible: boolean, drumAudible: boolean) {
+    const start = (await readHits()).length;
+    await expect.poll(async () => {
+      const hits = (await readHits()).slice(start);
+      return hits.some(hit => !hit.drum) && hits.some(hit => hit.drum)
+        && hits.every(hit => hit.audible === (hit.drum ? drumAudible : keysAudible));
+    }).toBe(true);
+  }
+
+  await page.goto('/');
+  await draw(page, key, 120, 90);
+  await page.getByRole('button', { name: 'Use Keys sound' }).click();
+  await draw(page, drum, 280, 65);
+  await page.getByRole('button', { name: 'Use Drum sound' }).click();
+  const keysSolo = page.getByRole('button', { name: 'Solo Keys' });
+  const drumSolo = page.getByRole('button', { name: 'Solo Drum' });
+  await expect(keysSolo).toBeVisible();
+  await expect(page.getByText('Try drawing', { exact: true })).toHaveCount(0);
+  await expect(page.locator('[data-performer="Drum"]')).toHaveAttribute('data-active', 'true', { timeout: 5000 });
+
+  await keysSolo.click();
+  await expect(keysSolo).toHaveAttribute('aria-pressed', 'true');
+  await expectMix(true, false);
+  await drumSolo.click();
+  await expect(keysSolo).toHaveAttribute('aria-pressed', 'false');
+  await expect(drumSolo).toHaveAttribute('aria-pressed', 'true');
+  await expectMix(false, true);
+  await drumSolo.click();
+  await expect(drumSolo).toHaveAttribute('aria-pressed', 'false');
+  await expectMix(true, true);
+
+  await drumSolo.click();
+  await page.getByRole('button', { name: 'Remove Drum' }).click();
+  await expect(drumSolo).toHaveAttribute('aria-pressed', 'false');
+  await expect(drumSolo).toBeDisabled();
+});
+
 test.describe('touch drawing', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce' });
 

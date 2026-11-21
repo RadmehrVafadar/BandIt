@@ -10,7 +10,8 @@ export class BeatEngine {
   private context?: AudioContext;
   private compressorInput!: DynamicsCompressorNode;
   private buffers = new WeakMap<Sample, AudioBuffer>();
-  private songNodes = new Set<AudioBufferSourceNode>();
+  private songNodes = new Map<AudioBufferSourceNode, { id: string; gain: GainNode; level: number }>();
+  private soloId: string | null = null;
   private slots: Slots;
   private frames: ScheduledFrame[] = [];
   private timer?: number;
@@ -76,7 +77,7 @@ export class BeatEngine {
     clearInterval(this.timer);
     this.timer = undefined;
     cancelAnimationFrame(this.animation);
-    for (const node of this.songNodes) node.stop();
+    for (const node of this.songNodes.keys()) node.stop();
     this.songNodes.clear();
     for (const frame of this.frames) {
       for (const [index, change] of frame.applied) {
@@ -101,12 +102,23 @@ export class BeatEngine {
     return this.pending.get(slot)?.at ?? this.next;
   }
 
+  setSolo(id: string | null) {
+    this.soloId = id;
+    for (const hit of this.songNodes.values()) {
+      hit.gain.gain.setTargetAtTime(this.audibleLevel(hit.id, hit.level), hit.gain.context.currentTime, 0.005);
+    }
+  }
+
   dispose() {
     this.pause();
     if (this.context) void this.context.close();
   }
 
-  private hit(sample: Sample, time: number, level: number, pitch: number) {
+  private audibleLevel(id: string, level: number) {
+    return this.soloId === null || this.soloId === id ? level : 0;
+  }
+
+  private hit({ id, sample }: Instrument, time: number, level: number, pitch: number) {
     const context = this.context!;
     let buffer = this.buffers.get(sample);
     if (!buffer) {
@@ -118,14 +130,14 @@ export class BeatEngine {
     const gain = context.createGain();
     source.buffer = buffer;
     source.playbackRate.value = 2 ** (pitch / 12);
-    gain.gain.value = level;
+    gain.gain.value = this.audibleLevel(id, level);
     source.connect(gain).connect(this.compressorInput);
     source.onended = () => {
       this.songNodes.delete(source);
       source.disconnect();
       gain.disconnect();
     };
-    this.songNodes.add(source);
+    this.songNodes.set(source, { id, gain, level });
     source.start(time);
   }
 
@@ -153,7 +165,7 @@ export class BeatEngine {
           const event = patterns[instrument.role].find(([offset]) => offset === beat);
           if (!event) return;
           const [, level, pitch = 0] = event;
-          this.hit(instrument.sample, time, level, pitch);
+          this.hit(instrument, time, level, pitch);
           hits.push(index);
         });
       }
