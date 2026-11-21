@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -7,13 +7,29 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 import { soundHandler } from '../../server/handler.ts';
+import { withProviderKey } from '../../server/access.ts';
 
 async function serve(t: TestContext, directory: string) {
-  const server = createServer(soundHandler(directory, 'test-key'));
+  const handle = soundHandler(directory);
+  const server = createServer((req, res) => handle(req, res, { key: 'test-key' }));
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise<void>(resolve => server.close(() => resolve())));
   return 'http://127.0.0.1:' + (server.address() as AddressInfo).port + '/api/sounds';
 }
+
+test('the public demo can replay a cached clip when the shared key is unavailable', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'bandit-demo-cache-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  await writeFile(join(directory, 'basketball.mp3'), 'cached bounce');
+  const server = createServer(withProviderKey(soundHandler(directory), undefined));
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise<void>(resolve => server.close(() => resolve())));
+  const response = await fetch('http://127.0.0.1:' + (server.address() as AddressInfo).port + '/api/sounds?name=basketball', {
+    method: 'POST', headers: { 'x-bandit-demo': '1', 'x-pocket-band': '1' },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), 'cached bounce');
+});
 
 test('basketball generates audio when the function starts outside the static site', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'bandit-function-'));

@@ -21,7 +21,9 @@ npm ci
 npm run dev
 ```
 
-Open the localhost URL Vite prints.
+Open the localhost URL Vite prints and choose **See demo**, or sign in with Google to keep a separate local studio.
+After sign-in, enter either provider key or select **Skip for now** to use the site's keys.
+See the [login and API key guide](docs/authentication.md) for hosting settings.
 
 On iPhone, open the site over HTTPS, draw with your finger, and tap a sound.
 Allow motion access when prompted, then give the phone a firm shake to send the object toward a screen edge.
@@ -31,7 +33,7 @@ Removing objects until one remains returns it to motion playback.
 If motion access is denied or sensor readings are unavailable, the object plays on the beat.
 If an in-app browser waits for a playback gesture, tap **Play** after the object appears.
 
-For camera recognition, put `GEMINI_API_KEY=your-key` in the project's ignored `.env.local` and restart Vite.
+For shared camera recognition, put `GEMINI_API_KEY` in the project's ignored `.env.local` and restart Vite.
 Open an empty **+** slot, choose **Camera**, allow camera access, and select **Take photo**.
 BandIt sends that frame to Gemini and adds the identified object to the slot you chose.
 If Gemini returns an ambiguous label such as “mouse,” you can choose the animal or the computer accessory before adding it.
@@ -40,7 +42,7 @@ Other objects use the photo and a built-in sound.
 A computer mouse keeps its photo and plays a click.
 Camera access requires localhost or HTTPS.
 
-For live sounds, put `ELEVENLABS_API_KEY=your-key` in the project's ignored `.env.local` and restart Vite.
+For shared live sounds, put `ELEVENLABS_API_KEY` in the project's ignored `.env.local` and restart Vite.
 For sound generation, the server sends the selected label to ElevenLabs and requests a short one-shot.
 Keys, Drum, and Cup ship with generated clips in `public/demo-sounds/`.
 Run `npm run sounds:demo` before rehearsal to fill any missing clips.
@@ -115,10 +117,11 @@ npm run test:e2e
 npm run build
 ```
 
-The browser tests exercise camera capture with a simulated webcam, ambiguous labels, interrupted touch strokes, mobile audio startup, phone motion and wall impacts, alongside beat playback and persistence.
+The browser tests cover Google sign-in, personal and shared keys, the public demo, simulated camera capture, ambiguous labels, interrupted touch strokes, mobile audio startup, phone motion, beat playback and persistence.
 Set `BANDIT_CHROME` to use an existing Chrome or Chromium executable.
 For a local demo of the built app with live generation, run `npm run build` followed by `npm run preview`.
-Static hosting serves bundled demo clips and built-in voices; live generation requires the sound endpoint on a server with the API key.
+Static hosting serves the sketch model, bundled clips and built-in voices.
+Camera recognition and live sound generation require the Vite or Vercel API endpoints.
 
 On Vercel, set `ELEVENLABS_API_KEY` in the Production environment and redeploy to enable live generation at `/api/sounds`.
 Set `GEMINI_API_KEY` in the deployment environment and redeploy to enable camera recognition at `/api/identify`.
@@ -126,6 +129,7 @@ The function and recognition worker import the same bundled object labels.
 The browser saves successfully decoded generated clips by object name and reuses them across drawings and reloads.
 Connect Upstash for Redis from Vercel Storage and redeploy to use the injected `KV_REST_API_URL` and `KV_REST_API_TOKEN` across users and cold starts.
 For manual setup, set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` for the same Redis database and redeploy.
-Concurrent requests for an uncached object share one generation, and completed clips have no expiry.
+Concurrent requests for an uncached object share one generation within the same funding source.
+Shared-key recordings use the site's cache, and personal-key recordings use that person's cache.
 Without Redis, each warm instance keeps its own temporary server cache.
 New car drawings use a starter motor cranking, catching and idling, and the sequencer preserves the generated recording.

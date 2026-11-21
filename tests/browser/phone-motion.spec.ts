@@ -28,7 +28,7 @@ async function openPhone(page: Page, permission: 'granted' | 'denied') {
       return start.apply(this, args);
     };
   }, permission);
-  await page.goto('/');
+  await page.goto('/?demo');
   await expect(page.getByRole('button', { name: 'Add an object to slot 1' })).toBeEnabled();
 }
 

@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
 test('a long press on the canvas leaves the stroke available to finish', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?demo');
   const canvas = page.getByLabel('Draw an object', { exact: true });
   await expect(canvas).toHaveAttribute('data-disabled', 'false');
   await page.mouse.move(80, 360);
@@ -47,7 +47,7 @@ test('plays a drawn sound through the media audio session after a tap', async ({
     } as typeof connect;
   });
   await page.route('**/doodlenet/model.json', route => route.abort());
-  await page.goto('/');
+  await page.goto('/?demo');
   const canvas = page.getByLabel('Draw an object', { exact: true });
   await expect(canvas).toHaveAttribute('data-disabled', 'false');
   await page.touchscreen.tap(150, 350);
@@ -77,7 +77,7 @@ test('a webview that defers audio can retry with Play after choosing a sound', a
     };
   });
   await page.route('**/doodlenet/model.json', route => route.abort());
-  await page.goto('/');
+  await page.goto('/?demo');
   await expect(page.getByLabel('Draw an object', { exact: true })).toHaveAttribute('data-disabled', 'false');
   await page.touchscreen.tap(150, 350);
   await page.getByRole('button', { name: 'Use Drum sound' }).tap();

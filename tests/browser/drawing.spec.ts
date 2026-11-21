@@ -4,6 +4,7 @@ import { createBeatboxPack } from '../../src/beatbox.ts';
 import { drawingSample } from '../../src/drawing-sounds.ts';
 import { hitDelay, loopScore } from '../../src/loop-score.ts';
 import { STEP_SECONDS } from '../../src/music.ts';
+import { mockAuth0, testAccessToken } from '../fixtures/auth0.ts';
 
 const key = [
   [[0, 11], [4, 3], [13, 0], [22, 4], [24, 13], [20, 22], [11, 25], [3, 20], [0, 11]],
@@ -44,10 +45,14 @@ test('BandIt shows a rotating note and respects reduced motion', async ({ page }
   await expect(note).toBeVisible();
 });
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page, baseURL }) => {
+  await mockAuth0(page, { returningAt: baseURL });
   // Keep rehearsals and CI deterministic even when a developer has a paid key.
   await page.route('**/demo-sounds/*.mp3', route => route.fulfill({ status: 404 }));
-  await page.route('**/api/sounds?*', route => route.fulfill({ status: 503 }));
+  await page.route('**/api/sounds?*', route => {
+    expect(route.request().headers().authorization).toBe('Bearer ' + testAccessToken);
+    return route.fulfill({ status: 503 });
+  });
 });
 
 async function draw(page: Page, strokes: number[][][], xOffset: number, yOffset: number, touch = false) {

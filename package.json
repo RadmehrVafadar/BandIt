@@ -15,11 +15,13 @@
   },
   "dependencies": {
     "@audio/synth-sfx": "^1.1.4",
+    "@auth0/auth0-spa-js": "^2.30.0",
     "@fontsource-variable/dm-sans": "^5.2.8",
     "@fontsource-variable/outfit": "^5.2.8",
     "@tensorflow/tfjs-backend-cpu": "^4.22.0",
     "@tensorflow/tfjs-core": "^4.22.0",
     "@tensorflow/tfjs-layers": "^4.22.0",
+    "jose": "^6.2.18",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

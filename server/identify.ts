@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { ProviderAccess } from './access.ts';
 import { objectLabels, photoMeanings } from '../src/object-labels.ts';
 
 const maxBytes = 1024 * 1024;
@@ -10,9 +11,9 @@ const prompt = 'Identify the single most prominent physical object from its visi
   + 'several meanings. Return null if no object is clear. Use one of these names if its meaning fits, or supply a more '
   + 'accurate name for a different object: ' + [...photoNames].join(', ');
 
-export function identifyHandler(key: string | undefined, request = fetch) {
+export function identifyHandler(request = fetch) {
   // Vercel supplies parsed JSON. Vite supplies the raw request stream.
-  return async (req: IncomingMessage & { body?: { image?: unknown } }, res: ServerResponse) => {
+  return async (req: IncomingMessage & { body?: { image?: unknown } }, res: ServerResponse, { key }: ProviderAccess) => {
     res.setHeader('Cache-Control', 'no-store');
     if (req.method !== 'POST') return void res.writeHead(405, { Allow: 'POST' }).end();
     if (req.headers['x-pocket-band'] !== '1') return void res.writeHead(400).end();
@@ -45,7 +46,7 @@ export function identifyHandler(key: string | undefined, request = fetch) {
     res.once('close', () => canceled.abort());
     try {
       const response = await request(endpoint, {
-        method: 'POST',
+        method: 'POST', redirect: 'error',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
         body: JSON.stringify({
           contents: [{ parts: [{ inlineData: { mimeType: 'image/jpeg', data: image } }, { text: prompt }] }],
@@ -57,7 +58,11 @@ export function identifyHandler(key: string | undefined, request = fetch) {
         }),
         signal: AbortSignal.any([canceled.signal, AbortSignal.timeout(20000)]),
       });
-      if (!response.ok) return void res.writeHead(502).end();
+      if (!response.ok) {
+        const details = response.status === 400 ? await response.json().catch(() => undefined) : undefined;
+        const invalidKey = details?.error?.details?.some((entry: { reason?: string }) => entry.reason === 'API_KEY_INVALID');
+        return void res.writeHead(response.status === 401 || response.status === 403 || invalidKey ? 403 : 502).end();
+      }
       const result = await response.json();
       const candidate = result.candidates?.[0];
       if (result.promptFeedback?.blockReason || candidate?.finishReason === 'SAFETY') return void res.writeHead(422).end();

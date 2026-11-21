@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Camera, Headphones, Pause, Play, Plus, X } from 'lucide-react';
+import { Camera, Headphones, KeyRound, LogOut, Pause, Play, Plus, X } from 'lucide-react';
+import { storageSuffix } from './auth.ts';
+import type { StudioAccess } from './auth.ts';
 import { createBeatboxPack } from './beatbox.ts';
 import { CameraCapture } from './CameraCapture.tsx';
 import { Drawing } from './Drawing.tsx';
@@ -14,7 +16,7 @@ import { objectLabels, photoMeanings } from './object-labels.ts';
 import { createObject, doodleSuggestion, drawingFile, objects } from './objects.ts';
 import type { Suggestion } from './objects.ts';
 import { starters } from './starters.ts';
-import { objectSound, restoreHorseSounds } from './sounds.ts';
+import { objectSound, restoreHorseSounds, SoundKeyError } from './sounds.ts';
 import { createStagePhysics } from './stage-physics.ts';
 import { useSolo } from './useSolo.ts';
 import { usePhoneMotion } from './usePhoneMotion.ts';
@@ -32,7 +34,9 @@ function ObjectArt({ item, size }: { item: Instrument; size: number }) {
   return <Icon aria-hidden="true" size={size} strokeWidth={1.8} />;
 }
 
-export function App() {
+export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onExit: () => void; onEditKeys: () => void }) {
+  const libraryName = 'pocket-band' + storageSuffix(access.account);
+  const exitLabel = access.account ? 'Sign out' : 'Exit demo';
   const [instruments, setInstruments] = useState<Instrument[]>([]);
   const [slots, setSlots] = useState<Slots>(emptyStage);
   const [engine, setEngine] = useState<BeatEngine>();
@@ -67,7 +71,7 @@ export function App() {
       let arrangement = emptyStage;
       let parts: Map<string, Part> | undefined;
       try {
-        const connection = await openLibrary();
+        const connection = await openLibrary(libraryName);
         if (canceled) return connection.close();
         db.current = connection;
         const saved = await readLibrary(connection, builtIns.keys());
@@ -107,7 +111,7 @@ export function App() {
       instance?.dispose();
       db.current?.close();
     };
-  }, []);
+  }, [libraryName]);
 
   async function play() {
     if (!engine || engine.running) return;
@@ -169,10 +173,11 @@ export function App() {
     void engine.resumeAudio().catch(() => setError(audioStartError));
     const loadSample = async () => {
       // Bell's bundled stem and its recognizable accent both use the built-in bell.
-      if (hasClip && native !== 'hook') item.sample = await objectSound(name, engine.audioContext);
+      if (hasClip && native !== 'hook') item.sample = await objectSound(name, engine.audioContext, access);
     };
-    void loadSample().catch(() => {
-      if (!native) setError(name + ' is using its built-in sound. The clip was unavailable.');
+    void loadSample().catch((cause: unknown) => {
+      if (cause instanceof SoundKeyError) setError(name + ' is using its built-in sound. ' + cause.message);
+      else if (!native) setError(name + ' is using its built-in sound. The clip was unavailable.');
     }).finally(() => {
       add(item, slot, true);
       preparing.current = false;
@@ -216,7 +221,15 @@ export function App() {
 
   return (
     <main className="workspace">
-      <h1 className="brand"><span className="brand-note" aria-hidden="true" />BandIt</h1>
+      <header className="studio-account">
+        <h1 className="brand"><span className="brand-note" aria-hidden="true" />BandIt</h1>
+        {access.account && <button type="button" className="icon-button" onClick={onEditKeys} aria-label="API keys" title="API keys">
+          <KeyRound size={17} aria-hidden="true" />
+        </button>}
+        <button type="button" className="icon-button" onClick={onExit} aria-label={exitLabel} title={exitLabel}>
+          <LogOut size={18} aria-hidden="true" />
+        </button>
+      </header>
       <Drawing disabled={!engine || full || !!loadingSound} empty={!hasObjects && !loadingSound}
         full={full} loadingSound={loadingSound} onChoose={drawObject}
         playback={<button type="button" className="play-button" disabled={!hasObjects && !playing} onClick={togglePlayback}>
@@ -300,7 +313,7 @@ export function App() {
             popoverTarget="saved-picker" popoverTargetAction="hide"><X size={18} /></button>
         </div>
       </section>
-      {cameraSlot !== null && <CameraCapture onClose={() => setCameraSlot(null)} onIdentify={addPhoto} onCapture={() => {
+      {cameraSlot !== null && <CameraCapture access={access} onClose={() => setCameraSlot(null)} onIdentify={addPhoto} onCapture={() => {
         void engine?.resumeAudio().catch(() => setError(audioStartError));
         void motion.requestAccess(objectCount + 1);
       }} />}
