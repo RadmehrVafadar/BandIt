@@ -25,7 +25,7 @@ export function drawingFile(name: string) {
 }
 
 const familiarSounds: Record<string, ObjectKind> = {
-  key: 'keys', drums: 'drum', cup: 'cup', pencil: 'pencil',
+  key: 'keys', drums: 'drum', cup: 'cup', pencil: 'pencil', bell: 'bell', whistle: 'whistle',
 };
 
 export function doodleSuggestion(label: string): Suggestion {

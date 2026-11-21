@@ -73,7 +73,7 @@ button:disabled { cursor: default; color: #77777e; }
     animation: note-turn 4s steps(96, jump-none) infinite;
   }
 }
-.tool-rail, .play-button, .prediction, .board-notice, .error, .picker {
+.tool-rail, .play-button, .prediction, .board-notice, .error, .picker, .camera-dialog {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--panel);
@@ -109,6 +109,7 @@ button:disabled { cursor: default; color: #77777e; }
 .board-prompt span { color: var(--muted); font-size: .9375rem; }
 /* The bundled illustrations have dark outlines and white fills on a transparent page. */
 .sketch-art { filter: grayscale(1) invert(1) contrast(1.5); mix-blend-mode: screen; }
+.photo-art { border-radius: 6px; }
 .performer {
   --width: 58px;
   --height: 58px;
@@ -196,15 +197,34 @@ button:disabled { cursor: default; color: #77777e; }
 }
 .picker:popover-open { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 6px; }
 .close-picker { grid-area: 1 / 2; position: sticky; top: 0; }
-.picker p { grid-area: 1 / 1; padding: 6px; font-size: .9rem; }
-.picker p span { display: block; margin-top: 3px; color: var(--muted); }
+.picker p { grid-column: 1 / -1; padding: 2px 6px; color: var(--muted); font-size: .875rem; }
 .saved-objects { grid-area: 1 / 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(8rem, 100%), 1fr)); gap: 5px; padding: 0; list-style: none; }
+.saved-objects li:first-child { grid-column: 1 / -1; }
 .saved-objects button {
   display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding: 6px 10px;
   border: 1px solid var(--line); border-radius: 8px; background: transparent; text-align: left; font-size: .875rem;
 }
 .saved-objects img, .saved-objects svg { flex: none; width: 28px; height: 28px; object-fit: contain; }
 .saved-objects span { overflow-wrap: anywhere; }
+.camera-dialog {
+  width: min(28rem, calc(100% - 28px)); max-height: calc(100dvh - 28px);
+  padding: 14px; color: var(--ink); overflow-y: auto;
+}
+.camera-dialog::backdrop { background: rgb(0 0 0 / 75%); }
+.camera-dialog header { display: flex; align-items: center; justify-content: space-between; margin: -5px -5px 8px 0; }
+.camera-dialog h2 { font: 600 1.25rem var(--heading); }
+.camera-preview {
+  position: relative; width: 100%; aspect-ratio: 4 / 3; max-height: 48dvh;
+  overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--canvas);
+}
+.camera-preview video, .camera-preview img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.camera-dialog p { margin: 10px 0; color: var(--muted); font-size: .875rem; }
+.camera-dialog .camera-error { color: #ffc8bc; }
+.camera-shutter {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; min-height: 44px; border: 0; border-radius: 8px; background: var(--ink); color: var(--canvas); font-weight: 650;
+}
+.camera-shutter:disabled { background: var(--hover); color: var(--muted); }
 @media (hover: hover) {
   :is(.icon-button, .play-button, .slot-button, .suggestion, .saved-objects button):hover:enabled { background: var(--hover); color: white; }
   .slot-button:hover:enabled { border-color: #aaa; }

@@ -79,7 +79,7 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 
     expect(await canvas.boundingBox()).toEqual({ x: 0, y: 0, ...viewport });
     await expect(canvas).toHaveCSS('background-color', 'rgb(0, 0, 0)');
     await expect(page.getByText(/\bBPM\b|\d\s*\/\s*4 objects|Your mix/i)).toHaveCount(0);
-    const emptySlots = page.getByRole('button', { name: /Add a saved object to slot/ });
+    const emptySlots = page.getByRole('button', { name: /Add an object to slot/ });
     await expect(emptySlots).toHaveCount(4);
     expect(await emptySlots.evaluateAll(buttons => buttons.every(button => {
       const box = button.getBoundingClientRect();
@@ -96,10 +96,10 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 
       expect(ink).toEqual([255, 255, 255, 255]);
     }
     await page.getByRole('button', { name: 'Clear sketch' }).click();
-    const slot = page.getByRole('button', { name: 'Add a saved object to slot 3' });
+    const slot = page.getByRole('button', { name: 'Add an object to slot 3' });
     await slot.focus();
     await page.keyboard.press('Enter');
-    const picker = page.getByRole('dialog', { name: 'Saved objects' });
+    const picker = page.getByRole('dialog', { name: 'Add an object' });
     await expect(picker).toBeVisible();
     await expect(picker.getByRole('heading')).toHaveCount(0);
     await expect(slot).toHaveAttribute('aria-expanded', 'true');
@@ -199,9 +199,9 @@ test('draw keys, hear a floor hit, and layer a drum at the next bar', async ({ p
   await expect(play).toBeEnabled();
   await expect(drums).toHaveAttribute('data-active', 'true');
   await expect(drums.locator('img')).toHaveAttribute('src', drumDrawing!);
-  const emptyFirstSlot = page.getByRole('button', { name: 'Add a saved object to slot 1' });
-  await page.getByRole('button', { name: 'Add a saved object to slot 4' }).click();
-  const picker = page.getByRole('dialog', { name: 'Saved objects' });
+  const emptyFirstSlot = page.getByRole('button', { name: 'Add an object to slot 1' });
+  await page.getByRole('button', { name: 'Add an object to slot 4' }).click();
+  const picker = page.getByRole('dialog', { name: 'Add an object' });
   await expect(picker.getByRole('button', { name: 'Add Drum' })).toHaveCount(0);
   await picker.getByRole('button', { name: 'Add Keys' }).click();
   await expect(picker).toBeHidden();

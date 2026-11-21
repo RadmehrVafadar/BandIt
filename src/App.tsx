@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Headphones, Pause, Play, Plus, X } from 'lucide-react';
+import { Camera, Headphones, Pause, Play, Plus, X } from 'lucide-react';
+import { CameraCapture } from './CameraCapture.tsx';
 import { Drawing } from './Drawing.tsx';
 import { BeatEngine } from './engine.ts';
 import { emptyStage, openLibrary, readLibrary, storeStage } from './library.ts';
 import { nativePart } from './loop-score.ts';
 import { loadLoops } from './loops.ts';
 import type { DrawingSize, Instrument, Part, Position, Slots } from './music.ts';
-import { createObject, objects } from './objects.ts';
+import { objectLabels } from './object-labels.ts';
+import { createObject, doodleSuggestion, drawingFile, objects } from './objects.ts';
 import type { Suggestion } from './objects.ts';
 import { starters } from './starters.ts';
 import { objectSound, restoreHorseSounds } from './sounds.ts';
@@ -15,7 +17,8 @@ import { useSolo } from './useSolo.ts';
 
 function ObjectArt({ item, size }: { item: Instrument; size: number }) {
   if (item.image || !item.kind) {
-    return <img src={item.image} className={item.kind ? 'sketch-art' : undefined} alt="" draggable={false} />;
+    const art = item.kind && (item.image?.startsWith('data:image/jpeg;') ? 'photo-art' : 'sketch-art');
+    return <img src={item.image} className={art} alt="" draggable={false} />;
   }
   const Icon = objects[item.kind].Icon;
   return <Icon aria-hidden="true" size={size} strokeWidth={1.8} />;
@@ -39,7 +42,9 @@ export function App() {
   const preparing = useRef(false);
   const [loadingSound, setLoadingSound] = useState('');
   const [pickerSlot, setPickerSlot] = useState<number | null>(null);
+  const [cameraSlot, setCameraSlot] = useState<number | null>(null);
   const picker = useRef<HTMLDivElement>(null);
+  const pickerTrigger = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let canceled = false;
@@ -139,26 +144,38 @@ export function App() {
     return true;
   }
 
-  function drawObject(suggestion: Suggestion, position: Position, image: string, drawing: DrawingSize) {
-    const { name } = suggestion;
-    if (!engine || preparing.current || firstFree < 0) return false;
+  function prepareObject(item: Instrument, slot: number, hasClip = true) {
+    const { name } = item;
+    if (!engine || preparing.current || !isFree(slot)) return false;
     preparing.current = true;
     setLoadingSound(name);
     setError('');
-    const item = { ...createObject(suggestion, position), name, image, drawing };
     const native = nativePart(item);
     // Unlock browser audio inside the user's tap, before waiting for the network.
     void engine.audio().then(async context => {
       // Bell's bundled stem and its recognizable accent both use the built-in bell.
-      if (native !== 'hook') item.sample = await objectSound(name, context);
+      if (hasClip && native !== 'hook') item.sample = await objectSound(name, context);
     }).catch(() => {
       if (!native) setError(name + ' is using its built-in sound. The clip was unavailable.');
     }).finally(() => {
-      add(item, firstFree, true);
+      add(item, slot, true);
       preparing.current = false;
       setLoadingSound('');
     });
     return true;
+  }
+
+  function drawObject(suggestion: Suggestion, position: Position, image: string, drawing: DrawingSize) {
+    return prepareObject({ ...createObject(suggestion, position), image, drawing }, firstFree);
+  }
+
+  function addPhoto(name: string, photo: string) {
+    if (cameraSlot === null) return false;
+    const label = objectLabels.get(name);
+    const suggestion = doodleSuggestion(label ?? name.replaceAll(' ', '_'));
+    const item = createObject(suggestion, { x: (cameraSlot + 0.5) / slots.length, y: 0.36 });
+    item.image = label ? import.meta.env.BASE_URL + drawingFile(suggestion.name) : photo;
+    return prepareObject(item, cameraSlot, label !== undefined);
   }
 
   function remove(index: number, item: Instrument) {
@@ -208,16 +225,19 @@ export function App() {
       </Drawing>
       <section className="mix" aria-label="Object slots">
         {performers.map((item, index) => {
-          const label = item ? 'Solo ' + item.name : 'Add a saved object to slot ' + (index + 1);
+          const label = item ? 'Solo ' + item.name : 'Add an object to slot ' + (index + 1);
           const queued = !planned[index] ? 'Leaving on the next bar' : !slots[index] ? 'Joins on the next bar' : '';
           return (
             <div key={index} className="mix-slot">
               <button type="button" className={item ? 'slot-button' : 'slot-button empty-slot'}
-                aria-label={label} title={item ? label + ' (click to toggle, hold to preview)' : 'Choose a saved object'}
+                aria-label={label} title={item ? label + ' (click to toggle, hold to preview)' : 'Add an object'}
                 disabled={item ? !planned[index] : !engine || !!loadingSound}
                 popoverTarget={item ? undefined : 'saved-picker'} popoverTargetAction={item ? undefined : 'show'}
                 aria-haspopup={item ? undefined : 'dialog'} aria-expanded={item ? undefined : pickerSlot === index}
-                {...(item ? solo.buttonProps(item.id) : { onClick: () => setPickerSlot(index) })}>
+                {...(item ? solo.buttonProps(item.id) : { onClick: event => {
+                  pickerTrigger.current = event.currentTarget;
+                  setPickerSlot(index);
+                } })}>
                 {item ? <>
                   <Headphones className="solo-icon" size={15} />
                   <span className="slot-art" data-solo-muted={solo.isMuted(item.id)}><ObjectArt item={item} size={28} /></span>
@@ -230,23 +250,32 @@ export function App() {
             </div>
           );
         })}
-        <div id="saved-picker" className="picker" popover="auto" role="dialog" aria-label="Saved objects"
+        <div id="saved-picker" className="picker" popover="auto" role="dialog" aria-label="Add an object"
           tabIndex={-1} ref={picker} onToggle={event => {
             if (event.newState === 'open') event.currentTarget.focus();
             else setPickerSlot(null);
           }}>
-          <button type="button" className="icon-button close-picker" aria-label="Close saved objects"
-            popoverTarget="saved-picker" popoverTargetAction="hide"><X size={18} /></button>
-          {pickerSlot !== null && (saved.length ? <ul className="saved-objects">{saved.map(item => (
+          {pickerSlot !== null && <ul className="saved-objects">
+            <li><button type="button" disabled={!isFree(pickerSlot) || !!loadingSound} onClick={() => {
+              // Unlock audio on this tap so the first object can play after recognition.
+              void engine?.audio().catch(() => setError('Tap Play to start audio.'));
+              picker.current?.hidePopover();
+              pickerTrigger.current?.focus();
+              setCameraSlot(pickerSlot);
+            }}><Camera size={28} /><span>Camera</span></button></li>
+            {saved.map(item => (
             <li key={item.id}><button type="button" aria-label={'Add ' + item.name}
               disabled={!isFree(pickerSlot) || !!loadingSound} onClick={() => {
                 if (add(item, pickerSlot)) picker.current?.hidePopover();
               }}><ObjectArt item={item} size={28} /><span>{item.name}</span></button></li>
-          ))}</ul> : <p>{instruments.length ? 'All your saved objects are in the mix.' : 'No saved objects yet.'}
-            <span>{instruments.length ? 'Remove one from the mix to use it here.' : 'Draw an object and choose its sound to save it.'}</span>
-          </p>)}
+          ))}</ul>}
+          {pickerSlot !== null && !saved.length &&
+            <p>{instruments.length ? 'All your saved objects are in the mix.' : 'No saved objects yet.'}</p>}
+          <button type="button" className="icon-button close-picker" aria-label="Close object picker"
+            popoverTarget="saved-picker" popoverTargetAction="hide"><X size={18} /></button>
         </div>
       </section>
+      {cameraSlot !== null && <CameraCapture onClose={() => setCameraSlot(null)} onIdentify={addPhoto} />}
       <p role="status" className="sr-only">{status}</p>
       {error && <p className="error" role="alert">{error}</p>}
     </main>
