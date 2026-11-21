@@ -12,11 +12,11 @@ test('restore instrument media and stage across connections', async () => {
     id: 'keys', name: 'Keys', role: 'shaker', image: 'data:image/png;base64,keys',
     sample: { samples: new Float32Array([0, 0.85, 0]), rate: 48000 },
   };
-  await storeStage(db, ['mug', 'pen', 'keys', null], keys);
+  await storeStage(db, ['mug', 'pen', null, null, 'keys'], keys);
   db.close();
   db = await openLibrary(name);
-  assert.deepEqual(await readLibrary(db), { instruments: [keys], slots: ['mug', 'pen', 'keys', null] });
-  await storeStage(db, ['mug', 'pen', null, 'missing']);
+  assert.deepEqual(await readLibrary(db), { instruments: [keys], slots: ['mug', 'pen', null, null, 'keys'] });
+  await storeStage(db, ['mug', 'pen', 'missing']);
   assert.deepEqual(await readLibrary(db), { instruments: [keys], slots: ['mug', 'pen', null, null] });
   db.close();
 });

@@ -42,8 +42,9 @@ export function hoofbeats(): Sample {
 
 export function horseCallSteps(events: readonly Hit[], horseIndex: number, horseCount: number, ensembleSize: number) {
   const calls = new Set<number>();
+  const bars = PHRASE / BAR_STEPS;
   const barsApart = Math.max(horseCount, ensembleSize > 1 ? 2 : 1);
-  for (let bar = horseIndex; bar < PHRASE / BAR_STEPS; bar += barsApart) {
+  for (let bar = horseIndex % bars; bar < bars; bar += barsApart) {
     const first = events.find(([step]) => Math.floor(step / BAR_STEPS) === bar);
     if (first) calls.add(first[0]);
   }

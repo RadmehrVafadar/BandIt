@@ -51,11 +51,11 @@ export function createStagePhysics() {
       return { actor, slide, bounds, center, minX, maxX };
     });
 
-    // A nudge can create a new contact in a group, so recheck the pairs after moving them.
+    // Recheck new contacts after a nudge, with at most three passes per frame.
     const ordered = [...bodies].sort((a, b) => a.center + a.slide.x - b.center - b.slide.x);
-    for (let pass = 1; pass < ordered.length; pass++) {
+    for (let pass = 1; pass < ordered.length && pass <= 3; pass++) {
       for (const [index, left] of ordered.entries()) {
-        for (const right of ordered.slice(index + 1)) separate(left, right);
+        for (let right = index + 1; right < ordered.length; right++) separate(left, ordered[right]);
       }
     }
 

@@ -25,7 +25,7 @@ export function readLibrary(
     tx.oncomplete = () => {
       const ids = new Set([...builtInIds, ...instruments.result.map(item => item.id)]);
       const saved: Slots = stage.result ?? (instruments.result.length ? ['mug', 'pen', null, null] : emptyStage);
-      const slots = emptyStage.map((_, index) => {
+      const slots = Array.from({ length: Math.max(emptyStage.length, saved.length) }, (_, index) => {
         const id = saved[index];
         return id && ids.has(id) ? id : null;
       });

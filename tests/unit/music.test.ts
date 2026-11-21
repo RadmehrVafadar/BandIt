@@ -19,6 +19,10 @@ test('cancel a join or removal by keeping the current slot assignment', () => {
   updateQueue(slots, pending, 1, null, 10);
   updateQueue(slots, pending, 0, 'mug', 10);
   assert.equal(pending.size, 0);
+  updateQueue(slots, pending, 2, 'drum', 10);
+  assert.deepEqual(pending.get(2), { id: 'drum', at: 16 });
+  updateQueue(slots, pending, 2, null, 10);
+  assert.equal(pending.size, 0);
 });
 
 test('four bells own four different stems and keep the existing hook when possible', () => {
@@ -79,6 +83,7 @@ test('bounces land on the recorded accents including the entrance and wrap', () 
 test('horses leave room for the band and take turns through the loop boundary', () => {
   assert.deepEqual([...horseCallSteps(loopScore.bell, 0, 1, 1)], [0, 18, 32, 50]);
   assert.deepEqual([...horseCallSteps(loopScore.bell, 0, 1, 4)], [0, 32]);
+  assert.deepEqual([...horseCallSteps(loopScore.bell, 4, 5, 5)], [0]);
   for (const count of [2, 3, 4]) {
     const players = Array.from({ length: count }, (_, i) => ({ id: String(i), role: 'melody' as const }));
     const parts = arrange(players);

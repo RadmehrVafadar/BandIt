@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { CSSProperties } from 'react';
 import { Camera, Headphones, KeyRound, LogOut, Pause, Play, Plus, X } from 'lucide-react';
 import { storageSuffix } from './auth.ts';
@@ -24,6 +24,12 @@ import { usePhoneMotion } from './usePhoneMotion.ts';
 const beatbox = createBeatboxPack(import.meta.env.BASE_URL);
 const builtIns = new Map([...starters, ...beatbox].map(item => [item.id, item]));
 const audioStartError = 'Audio could not start. Tap Play to try again.';
+const desktopPointer = window.matchMedia('(pointer: fine)');
+
+function subscribeToPointer(update: () => void) {
+  desktopPointer.addEventListener('change', update);
+  return () => desktopPointer.removeEventListener('change', update);
+}
 
 function ObjectArt({ item, size }: { item: Instrument; size: number }) {
   if (item.image || !item.kind) {
@@ -49,6 +55,7 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
   const bank = useRef(new Map(builtIns));
   const db = useRef<IDBDatabase>(undefined);
   const actors = useRef(new Map<string, HTMLDivElement>());
+  const scheduled = engine?.scheduledSlots ?? slots;
   const planned = engine?.arrangement ?? slots;
   const objectCount = planned.filter(Boolean).length;
   const motion = usePhoneMotion(engine, actors, playing, objectCount);
@@ -59,6 +66,21 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
   const [cameraSlot, setCameraSlot] = useState<number | null>(null);
   const picker = useRef<HTMLDivElement>(null);
   const pickerTrigger = useRef<HTMLButtonElement>(null);
+  const nextExtraSlot = useRef<HTMLDivElement>(null);
+  const canExpand = useSyncExternalStore(subscribeToPointer, () => desktopPointer.matches);
+  const stageSize = Math.max(emptyStage.length, 1 + Math.max(
+    slots.findLastIndex(Boolean), scheduled.findLastIndex(Boolean), planned.findLastIndex(Boolean),
+  ));
+  const performers = Array.from({ length: stageSize }, (_, index) =>
+    bank.current.get(slots[index] ?? scheduled[index] ?? planned[index] ?? ''));
+  const vacant = performers.findIndex((item, index) => !item && (canExpand || index < emptyStage.length));
+  const firstFree = canExpand && vacant === -1 ? stageSize : vacant;
+  if (firstFree === stageSize) performers.push(undefined);
+  const capacity = canExpand ? performers.length : emptyStage.length;
+
+  useEffect(() => {
+    nextExtraSlot.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [firstFree]);
 
   useEffect(() => {
     let canceled = false;
@@ -143,7 +165,8 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
   }
 
   function isFree(index: number) {
-    return index >= 0 && !slots[index] && !engine?.scheduledSlots[index] && !engine?.pending.has(index);
+    return index >= 0 && index < capacity && !slots[index] && !engine?.scheduledSlots[index]
+      && !engine?.pending.get(index)?.id;
   }
 
   function add(item: Instrument, index: number, isNew = false) {
@@ -196,7 +219,7 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
     if (cameraSlot === null) return false;
     const label = objectLabels.get(name);
     const suggestion = doodleSuggestion(label ?? name.replaceAll(' ', '_'));
-    const item = createObject(suggestion, { x: (cameraSlot + 0.5) / slots.length, y: 0.36 });
+    const item = createObject(suggestion, { x: (cameraSlot + 0.5) / Math.max(stageSize, cameraSlot + 1), y: 0.36 });
     item.image = label ? import.meta.env.BASE_URL + drawingFile(suggestion.name) : photo;
     if (label && photoMeanings.has(label)) item.name = name[0].toUpperCase() + name.slice(1);
     return prepareObject(item, cameraSlot, label !== undefined);
@@ -212,10 +235,8 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
     refresh(value => value + 1);
   }
 
-  const performers = slots.map((id, index) => bank.current.get(id ?? engine?.scheduledSlots[index] ?? planned[index] ?? ''));
   const hasObjects = performers.some(Boolean);
-  const firstFree = slots.findIndex((_, index) => isFree(index));
-  const full = firstFree < 0;
+  const full = firstFree === -1;
   const saved = pickerSlot === null ? [] : instruments.filter(item => !performers.includes(item));
   const voices = pickerSlot === null ? [] : beatbox.filter(item => !performers.includes(item));
 
@@ -238,7 +259,7 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
         </button>}>
         {performers.map((item, index) => {
           if (!item) return null;
-          const position = item.position ?? { x: (index + 0.5) / slots.length, y: 0.36 };
+          const position = item.position ?? { x: (index + 0.5) / stageSize, y: 0.36 };
           const style = {
             '--x': position.x * 100 + '%', '--y': position.y * 100 + 'cqh',
             '--art-width': item.drawing && item.drawing.width * 100 + 'cqw',
@@ -258,12 +279,13 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
       </Drawing>
       {motion.message && pickerSlot === null && cameraSlot === null &&
         <p className="motion-status" role="status">{motion.message}</p>}
-      <section className="mix" aria-label="Object slots">
+      <section className="mix" data-expanded={stageSize > emptyStage.length || firstFree === stageSize} aria-label="Object slots">
         {performers.map((item, index) => {
+          if (!item && index >= capacity) return null;
           const label = item ? 'Solo ' + item.name : 'Add an object to slot ' + (index + 1);
           const queued = !planned[index] ? 'Leaving on the next bar' : !slots[index] ? 'Joins on the next bar' : '';
           return (
-            <div key={index} className="mix-slot">
+            <div key={index} className="mix-slot" ref={index === firstFree && index >= emptyStage.length ? nextExtraSlot : undefined}>
               <button type="button" className={item ? 'slot-button' : 'slot-button empty-slot'}
                 aria-label={label} title={item ? label + ' (click to toggle, hold to preview)' : 'Add an object'}
                 disabled={item ? !planned[index] : !engine || !!loadingSound}

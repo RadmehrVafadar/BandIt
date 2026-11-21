@@ -78,6 +78,8 @@ button:disabled { cursor: default; color: #77777e; }
   --bottom-edge: max(var(--edge), env(safe-area-inset-bottom));
   --dock-top: var(--top-edge);
   --slot-height: 68px;
+  --dock-height: var(--slot-height);
+  --dock-width: 26rem;
   position: fixed;
   inset: 0;
   isolation: isolate;
@@ -86,10 +88,14 @@ button:disabled { cursor: default; color: #77777e; }
     'brand slots controls' auto
     'prediction prediction prediction' auto
     'error error error' auto
-    '. . .' minmax(0, 1fr) / minmax(max-content, 1fr) minmax(0, 26rem) minmax(max-content, 1fr);
+    '. . .' minmax(0, 1fr) / minmax(max-content, 1fr) minmax(0, var(--dock-width)) minmax(max-content, 1fr);
   column-gap: 8px;
   padding: var(--top-edge) max(var(--edge), env(safe-area-inset-right))
     var(--bottom-edge) max(var(--edge), env(safe-area-inset-left));
+}
+.workspace:has(.mix[data-expanded=true]) {
+  --dock-height: calc(var(--slot-height) + 20px);
+  --dock-width: 38rem;
 }
 .drawing-area { position: absolute; inset: 0; z-index: -1; container-type: size; }
 .drawing-area canvas {
@@ -220,8 +226,20 @@ button:disabled { cursor: default; color: #77777e; }
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
-  width: min(100%, 26rem);
+  width: min(100%, var(--dock-width));
   pointer-events: none;
+}
+.mix[data-expanded=true] {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(5rem, 1fr);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-padding-inline: 5px;
+  scrollbar-width: thin;
+  scrollbar-color: #68686e transparent;
+  padding: 5px;
+  pointer-events: auto;
 }
 .mix-slot { position: relative; min-width: 0; height: var(--slot-height); pointer-events: auto; }
 .slot-button {
@@ -246,9 +264,9 @@ button:disabled { cursor: default; color: #77777e; }
 
 .picker {
   position: fixed;
-  inset: calc(var(--dock-top) + var(--slot-height) + 10px) 0 auto;
+  inset: calc(var(--dock-top) + var(--dock-height) + 10px) 0 auto;
   width: min(24rem, calc(100% - 2 * var(--edge)));
-  max-height: min(24rem, calc(100% - var(--dock-top) - var(--slot-height) - var(--bottom-edge) - 10px));
+  max-height: min(24rem, calc(100% - var(--dock-top) - var(--dock-height) - var(--bottom-edge) - 10px));
   overflow-y: auto;
   overscroll-behavior: contain;
   margin: 0 auto;
