@@ -23,8 +23,11 @@ async function loadClips() {
       }, { encoded: mp3.toString('base64'), rate });
       const peak = pcm.reduce((max, value) => Math.max(max, Math.abs(value)), 0);
       if (!peak) throw new Error('Silent source clip: ' + name);
-      const onset = pcm.findIndex(value => Math.abs(value) >= peak * .025);
-      clips[name] = { samples: Float32Array.from(pcm.slice(Math.max(0, onset - 48)), value => value * .78 / peak), rate };
+      // Start the keyring on a clear metallic strike, past the quieter handling noise.
+      const onset = pcm.findIndex(value => Math.abs(value) >= peak * (name === 'keys' ? .7 : .025));
+      const leadIn = name === 'keys' ? .008 : .002;
+      const strike = pcm.slice(Math.max(0, onset - Math.round(leadIn * rate)));
+      clips[name] = { samples: Float32Array.from(strike, value => value * .78 / peak), rate };
     }
     return clips;
   } finally {

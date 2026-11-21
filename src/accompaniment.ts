@@ -1,23 +1,23 @@
-import { chordRoots } from './loop-score.ts';
+import { chords } from './loop-score.ts';
 import { BAR_STEPS, STEP_SECONDS } from './music.ts';
 import type { Sample } from './music.ts';
 
 type Note = readonly [step: number, length: number, semitones: number, level: number];
 type Tone = (phase: number, age: number, remaining: number) => number;
 
-// Root and fifth answer the kick. The final B-flat leads back to C.
+// Support the drum's bass line on its offbeat notes. The final B leads back to C.
 const bass: Note[][] = [
   [],
-  [[2, 5, 0, .09], [10, 3, 7, .06]],
-  [[2, 6, 0, .088], [11, 3, 7, .06]],
-  [[2, 5, 0, .09], [10, 3, 7, .06], [14, 1.5, 3, .047]],
+  [[2, 4, 0, .09], [10, 3, 4, .06]],
+  [[2, 4, 0, .088], [11, 3, 4, .06]],
+  [[2, 4, 0, .09], [10, 3, 10, .06], [14, 1.5, 4, .047]],
 ];
 
-// Voiced around middle C, the strings share B-flat while E-flat falls to D.
+// The two strings move in opposite semitones, from Bb and Eb to B and D.
 const strings: Note[][] = [
   [], [],
   [[4, 11, -2, .029], [5, 10, 3, .022]],
-  [[2, 11, -2, .027], [3, 10, 2, .022]],
+  [[2, 11, -1, .027], [3, 10, 2, .022]],
 ];
 
 const pluck: Tone = (phase, age, remaining) => {
@@ -51,7 +51,7 @@ function renderBar(notes: readonly Note[], tuning: number, tone: Tone): Sample |
 
 export function renderAccompaniment() {
   const middleC = 261.6256;
-  return chordRoots.map((root, bar) => ({
+  return chords.map(({ root }, bar) => ({
     bass: renderBar(bass[bar], middleC / 4 * 2 ** (root / 12), pluck),
     strings: renderBar(strings[bar], middleC, bow),
   }));

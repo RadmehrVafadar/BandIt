@@ -4,7 +4,7 @@ export const BPM = 96;
 export const BAR_STEPS = 16;
 export const STEP_SECONDS = 60 / BPM / 4;
 
-export type Hit = readonly [step: number, level: number, semitones?: number];
+export type Hit = readonly [step: number, level: number, semitones?: number, lengthSteps?: number];
 
 export type Role = 'kick' | 'snare' | 'shaker' | 'melody' | 'bell' | 'cup';
 export type Part = 'pulse' | 'backbeat' | 'motion' | 'hook';

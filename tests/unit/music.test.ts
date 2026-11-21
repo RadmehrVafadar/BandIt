@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BAR_STEPS, STEP_SECONDS, barBoundary, bounceHeight, PHRASE, arrange, updateQueue } from '../../src/music.ts';
-import { chordRoots, loopScore, loopVoice, nativePart, signatureSteps } from '../../src/loop-score.ts';
+import { bassLine, chords, loopScore, loopVoice, nativePart, signatureSteps } from '../../src/loop-score.ts';
 import type { Change, Role } from '../../src/music.ts';
 import { horseCallSteps } from '../../src/horse.ts';
 
@@ -34,11 +34,11 @@ test('four bells own four different stems and keep the existing hook when possib
 });
 
 test('the bass follows the four chord roots and long recordings get space between entrances', () => {
-  assert.equal(PHRASE, chordRoots.length * BAR_STEPS);
+  assert.equal(PHRASE, chords.length * BAR_STEPS);
   const accents = signatureSteps(loopScore.bell, 1.5);
-  for (const [bar, root] of chordRoots.entries()) {
+  for (const [bar, { root }] of chords.entries()) {
     const start = bar * BAR_STEPS;
-    assert.equal(loopScore.drum.find(([step]) => step === start)?.[2], root);
+    assert.equal(bassLine.find(([step]) => step === start)?.[2], root);
     assert.equal([...accents].filter(step => step >= start && step < start + BAR_STEPS).length, 1);
   }
   assert.deepEqual([...signatureSteps(loopScore.keys, .12)], loopScore.keys.map(([step]) => step));

@@ -1,0 +1,1161 @@
+{
+  "schema": "music-production/v1",
+  "title": "Tabletop Bingo",
+  "version": "1.0",
+  "clock": {
+    "bars": 4,
+    "meter": [
+      4,
+      4
+    ],
+    "tail_seconds": 1,
+    "tempo": [
+      [
+        0,
+        96
+      ]
+    ]
+  },
+  "sections": [
+    {
+      "id": "call",
+      "start_bar": 0,
+      "bars": 1
+    },
+    {
+      "id": "answer",
+      "start_bar": 1,
+      "bars": 1
+    },
+    {
+      "id": "lift",
+      "start_bar": 2,
+      "bars": 1
+    },
+    {
+      "id": "turn",
+      "start_bar": 3,
+      "bars": 1
+    }
+  ],
+  "tracks": [
+    {
+      "id": "kick",
+      "role": "drums",
+      "engine": "soundfont",
+      "notes": [
+        {
+          "id": "kick_b001_t000_p36",
+          "on": 0.0,
+          "duration": 0.512,
+          "pitch": 36
+        },
+        {
+          "id": "kick_b001_t084_p36",
+          "on": 1.75,
+          "duration": 0.512,
+          "pitch": 36
+        },
+        {
+          "id": "kick_b001_t120_p36",
+          "on": 2.5,
+          "duration": 0.512,
+          "pitch": 36
+        },
+        {
+          "id": "kick_b002_t000_p36",
+          "on": 4.0,
+          "duration": 0.512,
+          "pitch": 36
+        },
+        {
+          "id": "kick_b002_t072_p36",
+          "on": 5.5,
+          "duration": 0.512,
+          "pitch": 36
+        },
+        {
+          "id": "kick_b002_t096_p36",
+          "on": 6.0,
+          "duration": 0.512,
+          "pitch": 36
+        },
+        {
+          "id": "kick_b002_t180_p36",
+          "on": 7.75,
+          "duration": 0.512,
+          "pitch": 36
+        },
+        {
+          "id": "kick_b003_t000_p36",
+          "on": 8.0,
+          "duration": 0.512,
+          "pitch": 36
+        },
+        {
+          "id": "kick_b003_t084_p36",
+          "on": 9.75,
+          "duration": 0.512,
+          "pitch": 36
+        },
+        {
+          "id": "kick_b003_t120_p36",
+          "on": 10.5,
+          "duration": 0.512,
+          "pitch": 36
+        },
+        {
+          "id": "kick_b003_t168_p36",
+          "on": 11.5,
+          "duration": 0.512,
+          "pitch": 36
+        },
+        {
+          "id": "kick_b004_t000_p36",
+          "on": 12.0,
+          "duration": 0.512,
+          "pitch": 36
+        },
+        {
+          "id": "kick_b004_t096_p36",
+          "on": 14.0,
+          "duration": 0.512,
+          "pitch": 36
+        },
+        {
+          "id": "kick_b004_t132_p36",
+          "on": 14.75,
+          "duration": 0.512,
+          "pitch": 36
+        }
+      ],
+      "performance": {
+        "notes": {
+          "kick_b001_t000_p36": {
+            "velocity": 112,
+            "timing_ms": 0
+          },
+          "kick_b001_t084_p36": {
+            "velocity": 44,
+            "timing_ms": 15.625
+          },
+          "kick_b001_t120_p36": {
+            "velocity": 95,
+            "timing_ms": 0
+          },
+          "kick_b002_t000_p36": {
+            "velocity": 108,
+            "timing_ms": 0
+          },
+          "kick_b002_t072_p36": {
+            "velocity": 71,
+            "timing_ms": 0
+          },
+          "kick_b002_t096_p36": {
+            "velocity": 99,
+            "timing_ms": 0
+          },
+          "kick_b002_t180_p36": {
+            "velocity": 36,
+            "timing_ms": 15.625
+          },
+          "kick_b003_t000_p36": {
+            "velocity": 112,
+            "timing_ms": 0
+          },
+          "kick_b003_t084_p36": {
+            "velocity": 46,
+            "timing_ms": 15.625
+          },
+          "kick_b003_t120_p36": {
+            "velocity": 99,
+            "timing_ms": 0
+          },
+          "kick_b003_t168_p36": {
+            "velocity": 58,
+            "timing_ms": 0
+          },
+          "kick_b004_t000_p36": {
+            "velocity": 110,
+            "timing_ms": 0
+          },
+          "kick_b004_t096_p36": {
+            "velocity": 97,
+            "timing_ms": 0
+          },
+          "kick_b004_t132_p36": {
+            "velocity": 49,
+            "timing_ms": 15.625
+          }
+        },
+        "cc": []
+      },
+      "mix": {
+        "level_dbfs": -21,
+        "reverb_db": -32
+      },
+      "program": 0,
+      "drums": true
+    },
+    {
+      "id": "bass",
+      "role": "bass",
+      "engine": "soundfont",
+      "notes": [
+        {
+          "id": "bass_b001_t000_p36",
+          "on": 0.0,
+          "duration": 0.825,
+          "pitch": 36
+        },
+        {
+          "id": "bass_b001_t072_p43",
+          "on": 1.5,
+          "duration": 0.3125,
+          "pitch": 43
+        },
+        {
+          "id": "bass_b001_t120_p46",
+          "on": 2.5,
+          "duration": 0.675,
+          "pitch": 46
+        },
+        {
+          "id": "bass_b001_t168_p43",
+          "on": 3.5,
+          "duration": 0.2875,
+          "pitch": 43
+        },
+        {
+          "id": "bass_b002_t000_p32",
+          "on": 4.0,
+          "duration": 1.1,
+          "pitch": 32
+        },
+        {
+          "id": "bass_b002_t072_p39",
+          "on": 5.5,
+          "duration": 0.375,
+          "pitch": 39
+        },
+        {
+          "id": "bass_b002_t120_p36",
+          "on": 6.5,
+          "duration": 0.8125,
+          "pitch": 36
+        },
+        {
+          "id": "bass_b003_t000_p39",
+          "on": 8.0,
+          "duration": 0.825,
+          "pitch": 39
+        },
+        {
+          "id": "bass_b003_t072_p46",
+          "on": 9.5,
+          "duration": 0.3125,
+          "pitch": 46
+        },
+        {
+          "id": "bass_b003_t108_p43",
+          "on": 10.25,
+          "duration": 0.575,
+          "pitch": 43
+        },
+        {
+          "id": "bass_b003_t168_p34",
+          "on": 11.5,
+          "duration": 0.3,
+          "pitch": 34
+        },
+        {
+          "id": "bass_b004_t000_p31",
+          "on": 12.0,
+          "duration": 1.05,
+          "pitch": 31
+        },
+        {
+          "id": "bass_b004_t072_p38",
+          "on": 13.5,
+          "duration": 0.35,
+          "pitch": 38
+        },
+        {
+          "id": "bass_b004_t120_p41",
+          "on": 14.5,
+          "duration": 0.6,
+          "pitch": 41
+        },
+        {
+          "id": "bass_b004_t168_p35",
+          "on": 15.5,
+          "duration": 0.4125,
+          "pitch": 35
+        }
+      ],
+      "performance": {
+        "notes": {
+          "bass_b001_t000_p36": {
+            "velocity": 101,
+            "timing_ms": 14.0
+          },
+          "bass_b001_t072_p43": {
+            "velocity": 71,
+            "timing_ms": 14.0
+          },
+          "bass_b001_t120_p46": {
+            "velocity": 91,
+            "timing_ms": 14.0
+          },
+          "bass_b001_t168_p43": {
+            "velocity": 60,
+            "timing_ms": 14.0
+          },
+          "bass_b002_t000_p32": {
+            "velocity": 105,
+            "timing_ms": 14.0
+          },
+          "bass_b002_t072_p39": {
+            "velocity": 76,
+            "timing_ms": 14.0
+          },
+          "bass_b002_t120_p36": {
+            "velocity": 92,
+            "timing_ms": 14.0
+          },
+          "bass_b003_t000_p39": {
+            "velocity": 102,
+            "timing_ms": 14.0
+          },
+          "bass_b003_t072_p46": {
+            "velocity": 73,
+            "timing_ms": 14.0
+          },
+          "bass_b003_t108_p43": {
+            "velocity": 88,
+            "timing_ms": 29.625
+          },
+          "bass_b003_t168_p34": {
+            "velocity": 64,
+            "timing_ms": 14.0
+          },
+          "bass_b004_t000_p31": {
+            "velocity": 106,
+            "timing_ms": 14.0
+          },
+          "bass_b004_t072_p38": {
+            "velocity": 77,
+            "timing_ms": 14.0
+          },
+          "bass_b004_t120_p41": {
+            "velocity": 85,
+            "timing_ms": 14.0
+          },
+          "bass_b004_t168_p35": {
+            "velocity": 67,
+            "timing_ms": 14.0
+          }
+        },
+        "cc": []
+      },
+      "mix": {
+        "level_dbfs": -23,
+        "reverb_db": -32
+      },
+      "program": 33
+    },
+    {
+      "id": "keyring",
+      "role": "drums",
+      "engine": "soundfont",
+      "notes": [
+        {
+          "id": "keyring_b001_t024_p70",
+          "on": 0.5,
+          "duration": 0.3632,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b001_t072_p70",
+          "on": 1.5,
+          "duration": 0.25664,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b001_t120_p70",
+          "on": 2.5,
+          "duration": 0.33152,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b001_t168_p70",
+          "on": 3.5,
+          "duration": 0.26528,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b001_t180_p70",
+          "on": 3.75,
+          "duration": 0.19039999999999999,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b002_t024_p70",
+          "on": 4.5,
+          "duration": 0.35168,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b002_t072_p70",
+          "on": 5.5,
+          "duration": 0.25376000000000004,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b002_t120_p70",
+          "on": 6.5,
+          "duration": 0.3344,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b002_t168_p70",
+          "on": 7.5,
+          "duration": 0.27968000000000004,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b003_t024_p70",
+          "on": 8.5,
+          "duration": 0.36896,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b003_t072_p70",
+          "on": 9.5,
+          "duration": 0.25952000000000003,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b003_t132_p70",
+          "on": 10.75,
+          "duration": 0.32,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b003_t156_p70",
+          "on": 11.25,
+          "duration": 0.19616,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b003_t168_p70",
+          "on": 11.5,
+          "duration": 0.28832,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b004_t024_p70",
+          "on": 12.5,
+          "duration": 0.35168,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b004_t072_p70",
+          "on": 13.5,
+          "duration": 0.25376000000000004,
+          "pitch": 70
+        },
+        {
+          "id": "keyring_b004_t120_p70",
+          "on": 14.5,
+          "duration": 0.32864,
+          "pitch": 70
+        }
+      ],
+      "performance": {
+        "notes": {
+          "keyring_b001_t024_p70": {
+            "velocity": 101,
+            "timing_ms": 0
+          },
+          "keyring_b001_t072_p70": {
+            "velocity": 59,
+            "timing_ms": 0
+          },
+          "keyring_b001_t120_p70": {
+            "velocity": 88,
+            "timing_ms": 0
+          },
+          "keyring_b001_t168_p70": {
+            "velocity": 63,
+            "timing_ms": 0
+          },
+          "keyring_b001_t180_p70": {
+            "velocity": 34,
+            "timing_ms": 15.625
+          },
+          "keyring_b002_t024_p70": {
+            "velocity": 96,
+            "timing_ms": 0
+          },
+          "keyring_b002_t072_p70": {
+            "velocity": 58,
+            "timing_ms": 0
+          },
+          "keyring_b002_t120_p70": {
+            "velocity": 90,
+            "timing_ms": 0
+          },
+          "keyring_b002_t168_p70": {
+            "velocity": 68,
+            "timing_ms": 0
+          },
+          "keyring_b003_t024_p70": {
+            "velocity": 103,
+            "timing_ms": 0
+          },
+          "keyring_b003_t072_p70": {
+            "velocity": 60,
+            "timing_ms": 0
+          },
+          "keyring_b003_t132_p70": {
+            "velocity": 84,
+            "timing_ms": 15.625
+          },
+          "keyring_b003_t156_p70": {
+            "velocity": 36,
+            "timing_ms": 15.625
+          },
+          "keyring_b003_t168_p70": {
+            "velocity": 72,
+            "timing_ms": 0
+          },
+          "keyring_b004_t024_p70": {
+            "velocity": 96,
+            "timing_ms": 0
+          },
+          "keyring_b004_t072_p70": {
+            "velocity": 58,
+            "timing_ms": 0
+          },
+          "keyring_b004_t120_p70": {
+            "velocity": 87,
+            "timing_ms": 0
+          }
+        },
+        "cc": []
+      },
+      "mix": {
+        "level_dbfs": -28,
+        "reverb_db": -32
+      },
+      "program": 0,
+      "drums": true
+    },
+    {
+      "id": "rim",
+      "role": "drums",
+      "engine": "soundfont",
+      "notes": [
+        {
+          "id": "rim_b001_t048_p37",
+          "on": 1.0,
+          "duration": 0.4125,
+          "pitch": 37
+        },
+        {
+          "id": "rim_b001_t144_p37",
+          "on": 3.0,
+          "duration": 0.7875,
+          "pitch": 37
+        },
+        {
+          "id": "rim_b002_t048_p37",
+          "on": 5.0,
+          "duration": 0.4125,
+          "pitch": 37
+        },
+        {
+          "id": "rim_b002_t120_p37",
+          "on": 6.5,
+          "duration": 0.19039999999999999,
+          "pitch": 37
+        },
+        {
+          "id": "rim_b002_t144_p37",
+          "on": 7.0,
+          "duration": 0.8625,
+          "pitch": 37
+        },
+        {
+          "id": "rim_b003_t048_p37",
+          "on": 9.0,
+          "duration": 0.4125,
+          "pitch": 37
+        },
+        {
+          "id": "rim_b003_t144_p37",
+          "on": 11.0,
+          "duration": 0.625,
+          "pitch": 37
+        },
+        {
+          "id": "rim_b003_t180_p37",
+          "on": 11.75,
+          "duration": 0.18752,
+          "pitch": 37
+        },
+        {
+          "id": "rim_b004_t048_p37",
+          "on": 13.0,
+          "duration": 0.4125,
+          "pitch": 37
+        },
+        {
+          "id": "rim_b004_t132_p37",
+          "on": 14.75,
+          "duration": 0.19327999999999998,
+          "pitch": 37
+        },
+        {
+          "id": "rim_b004_t144_p37",
+          "on": 15.0,
+          "duration": 0.7,
+          "pitch": 37
+        }
+      ],
+      "performance": {
+        "notes": {
+          "rim_b001_t048_p37": {
+            "velocity": 95,
+            "timing_ms": 8.0
+          },
+          "rim_b001_t144_p37": {
+            "velocity": 106,
+            "timing_ms": 0
+          },
+          "rim_b002_t048_p37": {
+            "velocity": 92,
+            "timing_ms": 8.0
+          },
+          "rim_b002_t120_p37": {
+            "velocity": 34,
+            "timing_ms": 0
+          },
+          "rim_b002_t144_p37": {
+            "velocity": 110,
+            "timing_ms": 0
+          },
+          "rim_b003_t048_p37": {
+            "velocity": 96,
+            "timing_ms": 8.0
+          },
+          "rim_b003_t144_p37": {
+            "velocity": 112,
+            "timing_ms": 0
+          },
+          "rim_b003_t180_p37": {
+            "velocity": 32,
+            "timing_ms": 15.625
+          },
+          "rim_b004_t048_p37": {
+            "velocity": 93,
+            "timing_ms": 8.0
+          },
+          "rim_b004_t132_p37": {
+            "velocity": 35,
+            "timing_ms": 15.625
+          },
+          "rim_b004_t144_p37": {
+            "velocity": 105,
+            "timing_ms": 0
+          }
+        },
+        "cc": []
+      },
+      "mix": {
+        "level_dbfs": -25,
+        "reverb_db": -32
+      },
+      "program": 0,
+      "drums": true
+    },
+    {
+      "id": "ceramic",
+      "role": "harmony",
+      "engine": "soundfont",
+      "notes": [
+        {
+          "id": "ceramic_b001_t048_p63",
+          "on": 1.0,
+          "duration": 0.4125,
+          "pitch": 63
+        },
+        {
+          "id": "ceramic_b001_t048_p70",
+          "on": 1.0,
+          "duration": 0.4125,
+          "pitch": 70
+        },
+        {
+          "id": "ceramic_b001_t144_p63",
+          "on": 3.0,
+          "duration": 0.7875,
+          "pitch": 63
+        },
+        {
+          "id": "ceramic_b001_t144_p70",
+          "on": 3.0,
+          "duration": 0.7875,
+          "pitch": 70
+        },
+        {
+          "id": "ceramic_b002_t048_p63",
+          "on": 5.0,
+          "duration": 0.4125,
+          "pitch": 63
+        },
+        {
+          "id": "ceramic_b002_t048_p67",
+          "on": 5.0,
+          "duration": 0.4125,
+          "pitch": 67
+        },
+        {
+          "id": "ceramic_b002_t144_p63",
+          "on": 7.0,
+          "duration": 0.8625,
+          "pitch": 63
+        },
+        {
+          "id": "ceramic_b002_t144_p67",
+          "on": 7.0,
+          "duration": 0.8625,
+          "pitch": 67
+        },
+        {
+          "id": "ceramic_b003_t048_p60",
+          "on": 9.0,
+          "duration": 0.4125,
+          "pitch": 60
+        },
+        {
+          "id": "ceramic_b003_t048_p67",
+          "on": 9.0,
+          "duration": 0.4125,
+          "pitch": 67
+        },
+        {
+          "id": "ceramic_b003_t144_p60",
+          "on": 11.0,
+          "duration": 0.625,
+          "pitch": 60
+        },
+        {
+          "id": "ceramic_b003_t144_p67",
+          "on": 11.0,
+          "duration": 0.625,
+          "pitch": 67
+        },
+        {
+          "id": "ceramic_b004_t048_p59",
+          "on": 13.0,
+          "duration": 0.4125,
+          "pitch": 59
+        },
+        {
+          "id": "ceramic_b004_t048_p65",
+          "on": 13.0,
+          "duration": 0.4125,
+          "pitch": 65
+        },
+        {
+          "id": "ceramic_b004_t144_p59",
+          "on": 15.0,
+          "duration": 0.7,
+          "pitch": 59
+        },
+        {
+          "id": "ceramic_b004_t144_p65",
+          "on": 15.0,
+          "duration": 0.7,
+          "pitch": 65
+        }
+      ],
+      "performance": {
+        "notes": {
+          "ceramic_b001_t048_p63": {
+            "velocity": 69,
+            "timing_ms": 8.0
+          },
+          "ceramic_b001_t048_p70": {
+            "velocity": 54,
+            "timing_ms": 17.0
+          },
+          "ceramic_b001_t144_p63": {
+            "velocity": 78,
+            "timing_ms": 0
+          },
+          "ceramic_b001_t144_p70": {
+            "velocity": 61,
+            "timing_ms": 9.0
+          },
+          "ceramic_b002_t048_p63": {
+            "velocity": 67,
+            "timing_ms": 8.0
+          },
+          "ceramic_b002_t048_p67": {
+            "velocity": 52,
+            "timing_ms": 17.0
+          },
+          "ceramic_b002_t144_p63": {
+            "velocity": 80,
+            "timing_ms": 0
+          },
+          "ceramic_b002_t144_p67": {
+            "velocity": 63,
+            "timing_ms": 9.0
+          },
+          "ceramic_b003_t048_p60": {
+            "velocity": 70,
+            "timing_ms": 8.0
+          },
+          "ceramic_b003_t048_p67": {
+            "velocity": 55,
+            "timing_ms": 17.0
+          },
+          "ceramic_b003_t144_p60": {
+            "velocity": 82,
+            "timing_ms": 0
+          },
+          "ceramic_b003_t144_p67": {
+            "velocity": 64,
+            "timing_ms": 9.0
+          },
+          "ceramic_b004_t048_p59": {
+            "velocity": 68,
+            "timing_ms": 8.0
+          },
+          "ceramic_b004_t048_p65": {
+            "velocity": 53,
+            "timing_ms": 17.0
+          },
+          "ceramic_b004_t144_p59": {
+            "velocity": 77,
+            "timing_ms": 0
+          },
+          "ceramic_b004_t144_p65": {
+            "velocity": 60,
+            "timing_ms": 9.0
+          }
+        },
+        "cc": []
+      },
+      "mix": {
+        "level_dbfs": -30,
+        "reverb_db": -32
+      },
+      "program": 11
+    },
+    {
+      "id": "bell",
+      "role": "melody",
+      "engine": "soundfont",
+      "notes": [
+        {
+          "id": "bell_b001_t000_p72",
+          "on": 0.0,
+          "duration": 0.525,
+          "pitch": 72
+        },
+        {
+          "id": "bell_b001_t036_p75",
+          "on": 0.75,
+          "duration": 0.2375,
+          "pitch": 75
+        },
+        {
+          "id": "bell_b001_t072_p79",
+          "on": 1.5,
+          "duration": 1.15,
+          "pitch": 79
+        },
+        {
+          "id": "bell_b002_t024_p75",
+          "on": 4.5,
+          "duration": 0.55,
+          "pitch": 75
+        },
+        {
+          "id": "bell_b002_t060_p72",
+          "on": 5.25,
+          "duration": 0.2625,
+          "pitch": 72
+        },
+        {
+          "id": "bell_b002_t096_p68",
+          "on": 6.0,
+          "duration": 1.125,
+          "pitch": 68
+        },
+        {
+          "id": "bell_b003_t000_p72",
+          "on": 8.0,
+          "duration": 0.525,
+          "pitch": 72
+        },
+        {
+          "id": "bell_b003_t036_p75",
+          "on": 8.75,
+          "duration": 0.2375,
+          "pitch": 75
+        },
+        {
+          "id": "bell_b003_t072_p79",
+          "on": 9.5,
+          "duration": 0.6125,
+          "pitch": 79
+        },
+        {
+          "id": "bell_b003_t120_p82",
+          "on": 10.5,
+          "duration": 1.15,
+          "pitch": 82
+        },
+        {
+          "id": "bell_b004_t024_p77",
+          "on": 12.5,
+          "duration": 0.5125,
+          "pitch": 77
+        },
+        {
+          "id": "bell_b004_t060_p74",
+          "on": 13.25,
+          "duration": 0.2625,
+          "pitch": 74
+        },
+        {
+          "id": "bell_b004_t096_p67",
+          "on": 14.0,
+          "duration": 0.6,
+          "pitch": 67
+        },
+        {
+          "id": "bell_b004_t156_p71",
+          "on": 15.25,
+          "duration": 0.7,
+          "pitch": 71
+        }
+      ],
+      "performance": {
+        "notes": {
+          "bell_b001_t000_p72": {
+            "velocity": 97,
+            "timing_ms": 0
+          },
+          "bell_b001_t036_p75": {
+            "velocity": 74,
+            "timing_ms": 15.625
+          },
+          "bell_b001_t072_p79": {
+            "velocity": 105,
+            "timing_ms": 0
+          },
+          "bell_b002_t024_p75": {
+            "velocity": 92,
+            "timing_ms": 0
+          },
+          "bell_b002_t060_p72": {
+            "velocity": 71,
+            "timing_ms": 15.625
+          },
+          "bell_b002_t096_p68": {
+            "velocity": 100,
+            "timing_ms": 0
+          },
+          "bell_b003_t000_p72": {
+            "velocity": 100,
+            "timing_ms": 0
+          },
+          "bell_b003_t036_p75": {
+            "velocity": 77,
+            "timing_ms": 15.625
+          },
+          "bell_b003_t072_p79": {
+            "velocity": 94,
+            "timing_ms": 0
+          },
+          "bell_b003_t120_p82": {
+            "velocity": 108,
+            "timing_ms": 0
+          },
+          "bell_b004_t024_p77": {
+            "velocity": 92,
+            "timing_ms": 0
+          },
+          "bell_b004_t060_p74": {
+            "velocity": 72,
+            "timing_ms": 15.625
+          },
+          "bell_b004_t096_p67": {
+            "velocity": 86,
+            "timing_ms": 0
+          },
+          "bell_b004_t156_p71": {
+            "velocity": 78,
+            "timing_ms": 15.625
+          }
+        },
+        "cc": []
+      },
+      "mix": {
+        "level_dbfs": -22,
+        "reverb_db": -32
+      },
+      "program": 9
+    }
+  ],
+  "mix": {
+    "chain": "bus",
+    "rules": 2,
+    "target_lufs": -18,
+    "dynamics": "wide"
+  },
+  "brief": "Four 96 BPM layers for the BandIt drawing canvas. The bell calls and answers above a keyring, a ceramic cup, kick and bass. Each drawing can enter on a bar or play solo. This portable score uses General MIDI sounds for the object recordings.",
+  "style": "beats/boom-bap",
+  "association": {
+    "source": "draw",
+    "seed": 851128296,
+    "words": [
+      "cage",
+      "fluffy",
+      "chisel",
+      "bingo",
+      "sugar",
+      "pumpkin",
+      "silt",
+      "blimp",
+      "pyramid",
+      "denim",
+      "canvas",
+      "caterpillar"
+    ],
+    "whole": "Tabletop Bingo is a four-bar tabletop breakbeat. Under a canvas booth by the silt bank, a denim-pocketed child watches a striped caterpillar crawl up a pyramid of sugar pumpkin candies. The caller taps the wire cage with a chisel, calls bingo, and the fluffy prize blimp bobs up and settles. The cage supplies the offbeat keyring, the rise and fall supplies the three-note bell question and lower answer, and the hovering prize supplies the light ceramic chord tails.",
+    "gives": [
+      {
+        "level": "timbre",
+        "what": "the wire cage becomes a keyring",
+        "where": "motion"
+      },
+      {
+        "level": "form",
+        "what": "bounce up twice before settling",
+        "where": "call, answer, lift, turn"
+      },
+      {
+        "level": "rhythm",
+        "what": "numbers tapped and called across the counter",
+        "where": "bell and cup"
+      }
+    ]
+  },
+  "plan": {
+    "identity": "a short C-Eb-G figure answered in a lower register",
+    "high_point": {
+      "section": "lift",
+      "means": "a single held Bb5 above the repeated call"
+    },
+    "sections": [
+      {
+        "section": "call",
+        "leads": "bell",
+        "sounds": [
+          "kick",
+          "keyring",
+          "rim",
+          "bass",
+          "ceramic",
+          "bell"
+        ]
+      },
+      {
+        "section": "answer",
+        "leads": "bell",
+        "sounds": [
+          "kick",
+          "keyring",
+          "rim",
+          "bass",
+          "ceramic",
+          "bell"
+        ]
+      },
+      {
+        "section": "lift",
+        "leads": "bell",
+        "sounds": [
+          "kick",
+          "keyring",
+          "rim",
+          "bass",
+          "ceramic",
+          "bell"
+        ]
+      },
+      {
+        "section": "turn",
+        "leads": "bell",
+        "sounds": [
+          "kick",
+          "keyring",
+          "rim",
+          "bass",
+          "ceramic",
+          "bell"
+        ]
+      }
+    ]
+  },
+  "loop": {
+    "start_bar": 0,
+    "layers": {
+      "pulse": [
+        "kick",
+        "bass"
+      ],
+      "motion": [
+        "keyring"
+      ],
+      "backbeat": [
+        "rim",
+        "ceramic"
+      ],
+      "hook": [
+        "bell"
+      ]
+    }
+  },
+  "harmony": [
+    {
+      "bar": 1,
+      "symbol": "Cm7"
+    },
+    {
+      "bar": 2,
+      "symbol": "Abmaj7"
+    },
+    {
+      "bar": 3,
+      "symbol": "Eb6"
+    },
+    {
+      "bar": 4,
+      "symbol": "G7"
+    }
+  ],
+  "decisions": [
+    "sections_alike:call+answer: The bell descends into Ab4 and its fourth beat leaves room for the ceramic response. All four drawings can enter in either bar.",
+    "sections_alike:answer+lift: The opening contour returns with a higher fourth note, Bb5. The keyring answers just after its attack.",
+    "sections_alike:lift+turn: The bell drops into G7. The keyring clears beat four so the B pickups can lead across the seam."
+  ]
+}
