@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Camera, Headphones, Pause, Play, Plus, Vibrate, X } from 'lucide-react';
+import { Camera, Headphones, Pause, Play, Plus, X } from 'lucide-react';
 import { createBeatboxPack } from './beatbox.ts';
 import { CameraCapture } from './CameraCapture.tsx';
 import { Drawing } from './Drawing.tsx';
@@ -45,7 +45,9 @@ export function App() {
   const bank = useRef(new Map(builtIns));
   const db = useRef<IDBDatabase>(undefined);
   const actors = useRef(new Map<string, HTMLDivElement>());
-  const motion = usePhoneMotion(engine, actors, playing && slots.some(Boolean));
+  const planned = engine?.arrangement ?? slots;
+  const objectCount = planned.filter(Boolean).length;
+  const motion = usePhoneMotion(engine, actors, playing, objectCount);
   const entrances = useRef(new Map<string, number>());
   const preparing = useRef(false);
   const [loadingSound, setLoadingSound] = useState('');
@@ -110,9 +112,7 @@ export function App() {
   async function play() {
     if (!engine || engine.running) return;
     try {
-      const started = engine.play();
-      motion.startFromGesture();
-      await started;
+      await engine.play();
       setPlaying(true);
       setError(current => current === audioStartError ? '' : current);
     } catch {
@@ -126,6 +126,7 @@ export function App() {
       setPlaying(false);
     } else {
       void play();
+      void motion.requestAccess();
     }
   }
 
@@ -153,6 +154,7 @@ export function App() {
     setStatus(engine.pending.has(index) ? item.name + ' joins on the next bar.' : item.name + ' added to the mix.');
     refresh(value => value + 1);
     if (first) void play();
+    if (!isNew) void motion.requestAccess(objectCount + 1);
     return true;
   }
 
@@ -181,7 +183,7 @@ export function App() {
 
   function drawObject(suggestion: Suggestion, position: Position, image: string, drawing: DrawingSize) {
     const prepared = prepareObject({ ...createObject(suggestion, position), image, drawing }, firstFree);
-    if (prepared) motion.startFromGesture();
+    if (prepared) void motion.requestAccess(objectCount + 1);
     return prepared;
   }
 
@@ -199,12 +201,12 @@ export function App() {
     if (!engine) return;
     solo.remove(item.id);
     engine.change(index, null);
+    if (engine.running) void motion.requestAccess(objectCount - 1);
     persist();
     setStatus(engine.pending.has(index) ? item.name + ' leaves on the next bar.' : item.name + ' removed from the mix.');
     refresh(value => value + 1);
   }
 
-  const planned = engine?.arrangement ?? slots;
   const performers = slots.map((id, index) => bank.current.get(id ?? engine?.scheduledSlots[index] ?? planned[index] ?? ''));
   const hasObjects = performers.some(Boolean);
   const firstFree = slots.findIndex((_, index) => isFree(index));
@@ -241,13 +243,8 @@ export function App() {
           </div>;
         })}
       </Drawing>
-      {motion.supported && pickerSlot === null && cameraSlot === null && <div className="motion-control">
-        {motion.message && <p role="status">{motion.message}</p>}
-        <button type="button" aria-pressed={motion.active} disabled={motion.pending} onClick={motion.toggle}
-          title="Tilt or shake your phone to play sounds at the screen edges">
-          <Vibrate size={18} aria-hidden="true" />Tilt to play
-        </button>
-      </div>}
+      {motion.message && pickerSlot === null && cameraSlot === null &&
+        <p className="motion-status" role="status">{motion.message}</p>}
       <section className="mix" aria-label="Object slots">
         {performers.map((item, index) => {
           const label = item ? 'Solo ' + item.name : 'Add an object to slot ' + (index + 1);
@@ -305,7 +302,7 @@ export function App() {
       </section>
       {cameraSlot !== null && <CameraCapture onClose={() => setCameraSlot(null)} onIdentify={addPhoto} onCapture={() => {
         void engine?.resumeAudio().catch(() => setError(audioStartError));
-        motion.startFromGesture();
+        void motion.requestAccess(objectCount + 1);
       }} />}
       <p role="status" className="sr-only">{status}</p>
       {error && <p className="error" role="alert">{error}</p>}
