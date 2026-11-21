@@ -1,10 +1,11 @@
 import { hoofbeats } from './horse.ts';
 import type { Instrument, Sample } from './music.ts';
+import { illustratedSoundName } from './object-labels.ts';
 
 const demoNames = new Set(['keys', 'drum', 'cup']);
 
 export async function objectSound(name: string, context: BaseAudioContext): Promise<Sample> {
-  const label = name.toLowerCase();
+  const label = illustratedSoundName(name.toLowerCase());
   if (label === 'horse') {
     const response = await fetch(import.meta.env.BASE_URL + 'demo-sounds/horse.wav');
     if (!response.ok) throw new Error('Horse recording unavailable');

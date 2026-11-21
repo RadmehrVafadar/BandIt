@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, X } from 'lucide-react';
+import { photoMeanings } from './object-labels.ts';
 
 type Props = {
   onClose: () => void;
+  onCapture: () => void;
   onIdentify: (name: string, photo: string) => boolean;
 };
 
-export function CameraCapture({ onClose, onIdentify }: Props) {
+export function CameraCapture({ onClose, onCapture, onIdentify }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const session = useRef<AbortController>(null);
@@ -15,6 +17,7 @@ export function CameraCapture({ onClose, onIdentify }: Props) {
   const [accessError, setAccessError] = useState('');
   const [error, setError] = useState('');
   const [photo, setPhoto] = useState('');
+  const [clarification, setClarification] = useState<{ names: readonly string[]; photo: string }>();
 
   useEffect(() => {
     const element = dialog.current!;
@@ -62,10 +65,16 @@ export function CameraCapture({ onClose, onIdentify }: Props) {
     onClose();
   }
 
+  function add(name: string, snapshot: string) {
+    if (onIdentify(name, snapshot)) close();
+    else setError('This slot is no longer available. Choose an empty slot.');
+  }
+
   async function capture() {
     const preview = video.current!;
     const signal = session.current!.signal;
     if (!ready || photo || !preview.videoWidth || !preview.videoHeight) return;
+    onCapture();
     setError('');
     try {
       const frame = document.createElement('canvas');
@@ -93,8 +102,9 @@ export function CameraCapture({ onClose, onIdentify }: Props) {
       const { name } = await response.json();
       if (signal.aborted) return;
       if (typeof name !== 'string' || !name) throw new Error('Missing object name');
-      if (onIdentify(name, snapshot)) close();
-      else setError('This slot is no longer available. Choose an empty slot.');
+      const names = photoMeanings.get(name);
+      if (names) setClarification({ names, photo: snapshot });
+      else add(name, snapshot);
     } catch {
       if (!signal.aborted) setError('Photo recognition is unavailable. Try again in a moment.');
     } finally {
@@ -102,17 +112,29 @@ export function CameraCapture({ onClose, onIdentify }: Props) {
     }
   }
 
+  const snapshot = clarification?.photo ?? photo;
   return <dialog ref={dialog} className="camera-dialog" aria-labelledby="camera-title"
     onCancel={event => { event.preventDefault(); close(); }}>
     <header><h2 id="camera-title">Camera</h2>
       <button type="button" className="icon-button" aria-label="Close camera" onClick={close}><X size={19} /></button>
     </header>
-    <div className="camera-preview" hidden={!!accessError}>
+    <div className="camera-preview" hidden={!!accessError && !snapshot}>
       <video ref={video} aria-label="Camera preview" autoPlay playsInline muted onLoadedData={() => setReady(true)} />
-      {photo && <img src={photo} alt="Captured photo" />}
+      {snapshot && <img src={snapshot} alt="Captured photo" />}
     </div>
     {(accessError || error) && <p className="camera-error" role="alert">{accessError || error}</p>}
-    {accessError
+    {clarification ? <>
+      <fieldset className="camera-choices">
+        <legend>Which object is in your photo?</legend>
+        {clarification.names.map(name =>
+          <button key={name} type="button" className="camera-shutter" onClick={() => add(name, clarification.photo)}>
+            {name[0].toUpperCase() + name.slice(1)}
+          </button>)}
+      </fieldset>
+      <button type="button" className="camera-retake" onClick={() => {
+        setClarification(undefined); setError('');
+      }}>Retake photo</button>
+    </> : accessError
       ? <button type="button" className="camera-shutter" onClick={() => {
         setAccessError(''); setError(''); setReady(false); setAttempt(value => value + 1);
       }}>Try camera again</button>

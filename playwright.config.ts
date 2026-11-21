@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 
 const port = Number(process.env.POCKET_BAND_TEST_PORT ?? 4183);
 const baseURL = 'http://127.0.0.1:' + port;
@@ -7,12 +7,18 @@ export default defineConfig({
   testDir: './tests/browser',
   workers: 1,
   timeout: 30000,
-  use: {
-    baseURL,
-    launchOptions: {
-      executablePath: process.env.BANDIT_CHROME ?? process.env.POCKET_BAND_CHROME,
+  use: { baseURL },
+  projects: [
+    {
+      name: 'chromium',
+      use: { launchOptions: { executablePath: process.env.BANDIT_CHROME ?? process.env.POCKET_BAND_CHROME } },
     },
-  },
+    {
+      name: 'mobile-webkit',
+      testMatch: ['safari.spec.ts', 'phone-motion.spec.ts'],
+      use: { ...devices['iPhone 13'] },
+    },
+  ],
   webServer: {
     command: 'npm run build && npm run preview -- --host 127.0.0.1 --port ' + port + ' --strictPort',
     url: baseURL,

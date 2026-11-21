@@ -16,7 +16,12 @@ test('restoring two bells keeps the saved hook and gives the other bell its own 
 
   assert.deepEqual(parts, new Map([[original.id, 'hook'], [second.id, 'pulse']]));
   assert.equal(players.size, 2);
-  assert.deepEqual(players.get(original.id), { voice: 'bell', stem: loops.get('hook') });
+  const hook = players.get(original.id);
+  assert.ok(hook && 'stem' in hook);
+  assert.equal(hook.voice, 'bell');
+  assert.equal(hook.stem, loops.get('hook'));
+  assert.equal(hook.accent, undefined);
+  assert.equal(hook.solo.sample, original.sample);
   const pulse = players.get(second.id);
   assert.ok(pulse && 'stem' in pulse);
   assert.equal(pulse.stem, loops.get('pulse'));
@@ -39,4 +44,17 @@ test('a preserved drum recording plays over its stem and a beatbox voice plays o
   assert.equal(pulse.stem, loops.get('pulse'));
   assert.equal(pulse.accent?.sample, drum.sample);
   assert.deepEqual(players.get(vocal.id), { voice: 'bell', beatbox: vocal.sample });
+});
+
+test('Pool keeps its water sound when its part changes in a band', () => {
+  const pool: Instrument = { id: 'pool', name: 'Pool', kind: 'cup', role: 'cup', sample: tap };
+  const cup: Instrument = { id: 'cup', name: 'Cup', kind: 'cup', role: 'cup', sample: { ...tap } };
+  const bank = new Map([pool, cup].map(item => [item.id, item]));
+  for (const slots of [[pool.id], [pool.id, cup.id]]) {
+    const { players } = buildEnsemble(slots, bank, loops);
+    const player = players.get(pool.id);
+    assert.ok(player && 'solo' in player);
+    assert.equal(player.solo.sample, pool.sample);
+    assert.notEqual(player.solo.sample, player.stem);
+  }
 });

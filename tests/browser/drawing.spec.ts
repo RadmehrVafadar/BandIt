@@ -116,8 +116,7 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 
 
 test('draw keys, hear a floor hit, and layer a drum at the next bar', async ({ page }) => {
   await page.addInitScript(() => {
-    const hits: { at: number; start: number; voice: number }[] = [];
-    const voices = new Set<AudioBuffer>();
+    const hits: { at: number; start: number; stem: boolean }[] = [];
     const poses: { at: number; gap: number }[] = [];
     let audio: AudioContext | undefined;
     Object.assign(window, { hits, poses });
@@ -125,11 +124,12 @@ test('draw keys, hear a floor hit, and layer a drum at the next bar', async ({ p
     AudioBufferSourceNode.prototype.start = function (when = 0, offset = 0, duration?: number) {
       audio = this.context as AudioContext;
       if (this.buffer?.duration === 10) {
-        voices.add(this.buffer);
         const rate = this.buffer.sampleRate;
         const bar = this.buffer.getChannelData(0).subarray(Math.round(offset * rate), Math.round((offset + 2.5) * rate));
         const onset = bar.findIndex(value => Math.abs(value) > .015);
-        if (onset >= 0) hits.push({ at: when + onset / rate, start: when, voice: [...voices].indexOf(this.buffer) });
+        if (onset >= 0) hits.push({ at: when + onset / rate, start: when, stem: true });
+      } else if (this.buffer && Math.abs(this.buffer.duration - .23) < .0001) {
+        hits.push({ at: when, start: when, stem: false });
       }
       return start.call(this, when, offset, duration);
     };
@@ -180,10 +180,10 @@ test('draw keys, hear a floor hit, and layer a drum at the next bar', async ({ p
   await expect(page.getByText('Joins on the next bar', { exact: true })).toBeVisible();
   await expect(drums).toHaveAttribute('data-active', 'true', { timeout: 5000 });
   const drumDrawing = await drums.locator('img').getAttribute('src');
-  const barsBeforeDrum = await page.evaluate(() => {
-    const { hits } = window as unknown as { hits: { start: number; voice: number }[] };
-    return (hits.find(hit => hit.voice === 1)!.start - hits[0].start) / 2.5;
-  });
+  const barsBeforeDrum = await page.evaluate(firstKeyOffset => {
+    const { hits } = window as unknown as { hits: { start: number; stem: boolean }[] };
+    return (hits.find(hit => hit.stem)!.start - (hits[0].start - firstKeyOffset)) / 2.5;
+  }, loopScore.keys[0][0] * STEP_SECONDS);
   expect(barsBeforeDrum).toBeGreaterThanOrEqual(1);
   expect(barsBeforeDrum).toBeCloseTo(Math.round(barsBeforeDrum), 5);
 
@@ -278,7 +278,7 @@ test('four identical bells play distinct parts on the same floor grid', async ({
 });
 
 test('headphones isolate one object and restore the band and its accompaniment', async ({ page }) => {
-  type AudioHit = { voice: 'keys' | 'drum' | 'backing'; audible: boolean };
+  type AudioHit = { voice: 'keys' | 'drum' | 'backing'; buffer: number; audible: boolean };
   await page.addInitScript(() => {
     const audioHits: AudioHit[] = [];
     const soloTargets: Partial<Record<AudioHit['voice'], boolean>> = {};
@@ -287,12 +287,10 @@ test('headphones isolate one object and restore the band and its accompaniment',
     const connect = AudioNode.prototype.connect;
     AudioNode.prototype.connect = function (this: AudioNode, destination: AudioNode | AudioParam, ...ports: number[]) {
       if (this instanceof AudioBufferSourceNode && this.buffer && destination instanceof GainNode) {
-        let voice: AudioHit['voice'] = 'backing';
-        if (this.buffer.duration === 10) {
-          voices.add(this.buffer);
-          voice = [...voices][0] === this.buffer ? 'keys' : 'drum';
-        }
-        audioHits.push({ voice, audible: destination.gain.value > 0 });
+        const seconds = this.buffer.duration;
+        const voice = Math.abs(seconds - .23) < .0001 ? 'keys' : Math.abs(seconds - .34) < .0001 ? 'drum' : 'backing';
+        voices.add(this.buffer);
+        audioHits.push({ voice, buffer: [...voices].indexOf(this.buffer), audible: destination.gain.value > 0 });
         const setTarget = destination.gain.setTargetAtTime.bind(destination.gain);
         destination.gain.setTargetAtTime = (level, time, decay) => {
           soloTargets[voice] = level > 0;
@@ -310,14 +308,17 @@ test('headphones isolate one object and restore the band and its accompaniment',
       await expect(page.getByRole('button', { name: 'Solo ' + name }).locator('.slot-art')).toHaveCSS('opacity', opacity);
     }
     const start = (await readHits()).length;
-    const audible = { keys: keysAudible, drum: drumAudible, backing: keysAudible && drumAudible };
+    const band = keysAudible && drumAudible;
     // Solo must also update stems that were already playing when the button was pressed.
     await expect.poll(() => page.evaluate(() => (window as unknown as {
       soloTargets: Partial<Record<AudioHit['voice'], boolean>>;
-    }).soloTargets)).toMatchObject({ keys: keysAudible, drum: drumAudible });
+    }).soloTargets)).toMatchObject({ backing: band });
     await expect.poll(async () => {
       const hits = (await readHits()).slice(start);
-      return new Set(hits.map(hit => hit.voice)).size === 3 && hits.every(hit => hit.audible === audible[hit.voice]);
+      const audible = hits.filter(hit => hit.audible);
+      if (band) return new Set(audible.map(hit => hit.buffer)).size >= 2 && audible.every(hit => hit.voice === 'backing');
+      return audible.length > 0 && audible.every(hit => hit.voice === (keysAudible ? 'keys' : 'drum'))
+        && hits.some(hit => hit.voice === 'backing' && !hit.audible);
     }, { timeout: 6500 }).toBe(true);
   }
 
@@ -370,6 +371,30 @@ test('headphones isolate one object and restore the band and its accompaniment',
 
 test.describe('touch drawing', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce' });
+
+  test('a held touch keeps its ink when the browser interrupts the stroke', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.getByLabel('Draw an object', { exact: true });
+    await expect(canvas).toHaveAttribute('data-disabled', 'false');
+    const touch = await page.context().newCDPSession(page);
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 80, y: 360 }] });
+    await page.waitForTimeout(650);
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 180, y: 360 }] });
+    const middleOfStroke = () => canvas.evaluate((element: HTMLCanvasElement) => {
+      const scale = element.width / element.clientWidth;
+      return element.getContext('2d')!.getImageData(Math.round(130 * scale), Math.round(360 * scale), 1, 1).data[3];
+    });
+    expect(await middleOfStroke()).toBe(255);
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+    await touch.detach();
+    expect(await middleOfStroke()).toBe(255);
+    await expect(page.getByRole('group', { name: 'Sound suggestions' })).toBeVisible();
+    await page.touchscreen.tap(200, 400);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    expect(await middleOfStroke()).toBe(255);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    expect(await middleOfStroke()).toBe(0);
+  });
 
   test('holding headphones on touch restores the mix on release or cancellation', async ({ page }) => {
     await page.goto('/');
@@ -559,8 +584,9 @@ test('four drawings and their accompaniment share one phrase, including for a re
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
   const played = await notes();
   expect(liveRequests).toEqual([]);
-  for (const time of new Set(played.map(note => note.time))) {
-    const notesAtBar = played.filter(note => note.time === time);
+  const bars = played.filter(note => note.duration !== undefined);
+  for (const time of new Set(bars.map(note => note.time))) {
+    const notesAtBar = bars.filter(note => note.time === time);
     const stems = notesAtBar.filter(note => note.voice >= 0);
     const bar = Math.round((time - played[0].time) / 2.5) % 4;
     const bass = stems.length >= 2 && bar >= 1;
@@ -593,7 +619,7 @@ test('four drawings and their accompaniment share one phrase, including for a re
   await expect.poll(async () => (await notes())[0]?.duration).toBe(2.5);
 });
 
-test('a drawn horse neighs over its loop, plays hoofbeats between calls and keeps its voice after reload', async ({ page }) => {
+test('a lone horse plays only its natural call and keeps its voice after reload', async ({ page }) => {
   const notes = await trackNotes(page);
   const generated: string[] = [];
   page.on('request', request => {
@@ -606,25 +632,25 @@ test('a drawn horse neighs over its loop, plays hoofbeats between calls and keep
   await expect.poll(async () => (await calls()).length, { timeout: 8000 }).toBeGreaterThanOrEqual(2);
   const [first, second] = await calls();
   expect(second.at - first.at).toBeGreaterThanOrEqual(first.duration);
-  expect((await notes()).some(hit => hit.at === first.at && hit.duration === 10)).toBe(true);
-  expect((await notes()).some(hit => hit.at > first.at && hit.at < second.at && hit.duration < .3)).toBe(true);
-  expect((await calls()).every(hit => hit.speed === 1)).toBe(true);
+  expect((await notes()).every(hit => hit.duration === first.duration && hit.speed === 1)).toBe(true);
   expect(generated).toEqual([]);
   await page.reload();
   await page.getByRole('button', { name: 'Play', exact: true }).click();
   await expect.poll(async () => (await calls())[0]?.duration).toBe(first.duration);
 });
 
-test('Horse layers a pitched pluck under its natural call and hoofbeats', async ({ page }) => {
+test('a horse in a band layers a pitched pluck under its natural call and hoofbeats', async ({ page }) => {
   const notes = await trackNotes(page);
   await page.goto('/');
   await draw(page, horse, 110, 80);
   await page.getByRole('button', { name: 'Use Horse sound', exact: true }).click();
+  await page.getByRole('button', { name: 'Add an object to slot 2' }).click();
+  await page.getByRole('button', { name: 'Add Lip Kick' }).click();
   await expect.poll(async () => {
     const played = await notes();
     return played.some(call => call.duration > 1.4 && call.duration < 2 && call.speed === 1 &&
       played.some(pluck => pluck.at === call.at && Math.abs(pluck.duration - .48) < .0001));
-  }).toBe(true);
+  }, { timeout: 8000 }).toBe(true);
   await expect.poll(async () => (await notes()).some(note => Math.abs(note.duration - .48) < .0001 && note.speed !== 1),
     { timeout: 6500 }).toBe(true);
 });
@@ -657,7 +683,7 @@ test('a saved drawing recovers the neigh while a personal recording also named H
   await expect.poll(async () => (await notes()).some(hit => Math.abs(hit.duration - .1) < .0001)).toBe(true);
 });
 
-test('a crescent moon adds both its own voice and a musical stem, including after reload', async ({ page }) => {
+test('a lone crescent moon plays only its own sample, including after reload', async ({ page }) => {
   await page.addInitScript(() => {
     const start = AudioBufferSourceNode.prototype.start;
     AudioBufferSourceNode.prototype.start = function (...args) {
@@ -678,10 +704,11 @@ test('a crescent moon adds both its own voice and a musical stem, including afte
   const saved = await played();
   const source = drawingSample('moon').samples;
   expect(saved).toEqual([1, source.length, ...source.slice(100, 132)]);
-  expect(await page.evaluate(() => (window as unknown as { hasStem: boolean }).hasStem)).toBe(true);
+  expect(await page.evaluate(() => !!(window as unknown as { hasStem?: boolean }).hasStem)).toBe(false);
   await page.reload();
   await page.getByRole('button', { name: 'Play', exact: true }).click();
   await expect.poll(played).toEqual(saved);
+  expect(await page.evaluate(() => !!(window as unknown as { hasStem?: boolean }).hasStem)).toBe(false);
 });
 
 for (const source of ['demo', 'live']) {
@@ -730,7 +757,30 @@ for (const source of ['demo', 'live']) {
   });
 }
 
-test('a long saved car recording plays in full over the pulse without overlapping itself', async ({ page }) => {
+test('a Pool sketch requests and caches the swimming-pool sound even with an old ambiguous clip', async ({ page }) => {
+  await page.addInitScript(() => {
+    Worker.prototype.postMessage = function ({ id }: { id: number }) {
+      queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: { id, labels: ['pool'] } })));
+    };
+  });
+  const requested: string[] = [];
+  await page.route('**/api/sounds?*', route => {
+    requested.push(new URL(route.request().url()).searchParams.get('name')!);
+    return route.fulfill({ path: 'public/demo-sounds/cup.mp3', contentType: 'audio/mpeg' });
+  });
+  await page.goto('/');
+  await page.evaluate(async () => {
+    const cache = await caches.open('bandit-object-audio-v1');
+    await cache.put('/object-audio/pool', new Response('old ambiguous take', { headers: { 'Content-Type': 'audio/mpeg' } }));
+  });
+  await draw(page, [[[0, 0], [40, 0], [40, 20], [0, 20], [0, 0]]], 150, 200);
+  await page.getByRole('button', { name: 'Use Pool sound' }).click();
+  await expect(page.getByRole('button', { name: 'Solo Pool' })).toBeVisible();
+  expect(requested).toEqual(['swimming pool']);
+  expect(await page.evaluate(async () => !!await caches.match('/object-audio/swimming%20pool'))).toBe(true);
+});
+
+test('a lone saved car recording plays in full without overlapping itself', async ({ page }) => {
   const notes = await trackNotes(page);
   await page.goto('/');
   await expect(page.getByLabel('Draw an object')).toHaveAttribute('data-disabled', 'false');
@@ -756,7 +806,7 @@ test('a long saved car recording plays in full over the pulse without overlappin
   const [first, next] = await engines();
   expect(next.at - first.at).toBeCloseTo(5);
   expect((await engines()).every(note => note.speed === 1)).toBe(true);
-  expect((await notes()).some(note => note.duration === 10 && note.at === first.at)).toBe(true);
+  expect((await notes()).every(note => note.duration === first.duration)).toBe(true);
 });
 
 test('a missing recorded stem still plays its ten-second arrangement at 96 BPM', async ({ page }) => {
@@ -765,9 +815,11 @@ test('a missing recorded stem still plays its ten-second arrangement at 96 BPM',
   await page.goto('/');
   await draw(page, drum, 110, 80);
   await page.getByRole('button', { name: 'Use Drum sound', exact: true }).click();
-  await expect.poll(async () => (await notes())[0]?.duration).toBe(10);
-  await expect.poll(async () => (await notes()).length).toBeGreaterThanOrEqual(2);
-  const [first, second] = await notes();
+  await page.getByRole('button', { name: 'Add an object to slot 2' }).click();
+  await page.getByRole('button', { name: 'Add Tss Hat' }).click();
+  const stems = async () => (await notes()).filter(note => note.duration === 10);
+  await expect.poll(async () => (await stems()).length, { timeout: 8000 }).toBeGreaterThanOrEqual(2);
+  const [first, second] = await stems();
   expect(second.at - first.at).toBeCloseTo(2.5, 5);
 });
 

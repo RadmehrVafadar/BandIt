@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 import { identifyHandler } from '../../server/identify.ts';
+import { objectLabels } from '../../src/object-labels.ts';
 
 const image = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 2, 0xff, 0xd9]).toString('base64');
 const post = { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-pocket-band': '1' }, body: JSON.stringify({ image }) };
@@ -37,7 +38,21 @@ test('sends the submitted JPEG to Gemini and returns the object name', async t =
   const { contents, generationConfig } = await request.json();
   assert.deepEqual(contents[0].parts[0].inlineData, { mimeType: 'image/jpeg', data: image });
   assert.match(contents[0].parts[1].text, /coffee cup/);
+  assert.match(contents[0].parts[1].text, /computer mouse/);
+  assert.match(contents[0].parts[1].text, /animal mouse/);
+  assert.match(contents[0].parts[1].text, /musical keyboard/);
   assert.equal(generationConfig.responseMimeType, 'application/json');
+});
+
+test('photo names only reuse illustrations for the matching meaning', () => {
+  assert.equal(objectLabels.get('animal mouse'), 'mouse');
+  assert.equal(objectLabels.get('computer mouse'), undefined);
+  assert.equal(objectLabels.get('computer keyboard'), 'keyboard');
+  assert.equal(objectLabels.get('musical keyboard'), undefined);
+  assert.equal(objectLabels.get('flying bat'), 'bat');
+  assert.equal(objectLabels.get('baseball bat'), 'baseball_bat');
+  assert.equal(objectLabels.get('swimming pool'), 'pool');
+  assert.equal(objectLabels.get('pool table'), undefined);
 });
 
 test('rejects invalid and oversized uploads before contacting Gemini', async t => {
