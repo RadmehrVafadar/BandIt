@@ -1,4 +1,4 @@
-import { objectLabels } from '../src/object-labels.ts';
+import { illustratedSoundName, objectLabels } from '../src/object-labels.ts';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { soundBank } from './sounds.ts';
 
@@ -14,7 +14,7 @@ export function soundHandler(directory: string, key: string, shared?: SharedSoun
       return;
     }
     try {
-      const audio = await bank(name);
+      const audio = await bank(illustratedSoundName(name));
       res.writeHead(200, { 'Content-Type': 'audio/mpeg' }).end(audio);
     } catch (error) {
       console.warn('Object sound unavailable:', name, error instanceof Error ? error.message : '');

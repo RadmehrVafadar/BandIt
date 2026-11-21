@@ -1,11 +1,14 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { objectLabels } from '../src/object-labels.ts';
+import { objectLabels, photoMeanings } from '../src/object-labels.ts';
 
 const maxBytes = 1024 * 1024;
 const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent';
-const prompt = 'Identify the single most prominent physical object in this photo. Return its short common English name, '
-  + 'or null if no object is clearly identifiable. Use a game label when it accurately names the object, '
-  + 'otherwise use its actual name. Game labels: ' + [...objectLabels.keys()].join(', ');
+const photoNames = new Set([...objectLabels.keys()].flatMap(name => photoMeanings.get(name) ?? [name]));
+const prompt = 'Identify the single most prominent physical object from its visible features and surroundings. '
+  + 'Return a short English name that distinguishes the kind of object shown. For example, buttons and a scroll wheel '
+  + 'suggest a computer mouse, while fur and whiskers suggest an animal mouse. Keep qualifiers whenever a word has '
+  + 'several meanings. Return null if no object is clear. Use one of these names if its meaning fits, or supply a more '
+  + 'accurate name for a different object: ' + [...photoNames].join(', ');
 
 export function identifyHandler(key: string | undefined, request = fetch) {
   // Vercel supplies parsed JSON. Vite supplies the raw request stream.

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Camera, Headphones, Pause, Play, Plus, X } from 'lucide-react';
+import { Camera, Headphones, Pause, Play, Plus, Vibrate, X } from 'lucide-react';
 import { createBeatboxPack } from './beatbox.ts';
 import { CameraCapture } from './CameraCapture.tsx';
 import { Drawing } from './Drawing.tsx';
@@ -10,16 +10,18 @@ import { nativePart } from './loop-score.ts';
 import { loadLoops } from './loops.ts';
 import { STEP_SECONDS } from './music.ts';
 import type { DrawingSize, Instrument, Part, Position, Slots } from './music.ts';
-import { objectLabels } from './object-labels.ts';
+import { objectLabels, photoMeanings } from './object-labels.ts';
 import { createObject, doodleSuggestion, drawingFile, objects } from './objects.ts';
 import type { Suggestion } from './objects.ts';
 import { starters } from './starters.ts';
 import { objectSound, restoreHorseSounds } from './sounds.ts';
 import { createStagePhysics } from './stage-physics.ts';
 import { useSolo } from './useSolo.ts';
+import { usePhoneMotion } from './usePhoneMotion.ts';
 
 const beatbox = createBeatboxPack(import.meta.env.BASE_URL);
 const builtIns = new Map([...starters, ...beatbox].map(item => [item.id, item]));
+const audioStartError = 'Audio could not start. Tap Play to try again.';
 
 function ObjectArt({ item, size }: { item: Instrument; size: number }) {
   if (item.image || !item.kind) {
@@ -43,8 +45,8 @@ export function App() {
   const bank = useRef(new Map(builtIns));
   const db = useRef<IDBDatabase>(undefined);
   const actors = useRef(new Map<string, HTMLDivElement>());
+  const motion = usePhoneMotion(engine, actors, playing && slots.some(Boolean));
   const entrances = useRef(new Map<string, number>());
-  const starting = useRef(false);
   const preparing = useRef(false);
   const [loadingSound, setLoadingSound] = useState('');
   const [pickerSlot, setPickerSlot] = useState<number | null>(null);
@@ -106,15 +108,15 @@ export function App() {
   }, []);
 
   async function play() {
-    if (!engine || starting.current || engine.running) return;
-    starting.current = true;
+    if (!engine || engine.running) return;
     try {
-      await engine.play();
+      const started = engine.play();
+      motion.startFromGesture();
+      await started;
       setPlaying(true);
+      setError(current => current === audioStartError ? '' : current);
     } catch {
-      setError('Audio could not start. Tap Play to try again.');
-    } finally {
-      starting.current = false;
+      setError(audioStartError);
     }
   }
 
@@ -148,7 +150,7 @@ export function App() {
     }
     entrances.current.set(item.id, engine.change(index, item.id));
     persist(isNew ? item : undefined);
-    setStatus(engine.running ? item.name + ' joins on the next bar.' : item.name + ' added to the mix.');
+    setStatus(engine.pending.has(index) ? item.name + ' joins on the next bar.' : item.name + ' added to the mix.');
     refresh(value => value + 1);
     if (first) void play();
     return true;
@@ -161,11 +163,13 @@ export function App() {
     setLoadingSound(name);
     setError('');
     const native = nativePart(item);
-    // Unlock browser audio inside the user's tap, before waiting for the network.
-    void engine.audio().then(async context => {
+    // A webview can defer resume until Play is tapped. Decoding works while suspended.
+    void engine.resumeAudio().catch(() => setError(audioStartError));
+    const loadSample = async () => {
       // Bell's bundled stem and its recognizable accent both use the built-in bell.
-      if (hasClip && native !== 'hook') item.sample = await objectSound(name, context);
-    }).catch(() => {
+      if (hasClip && native !== 'hook') item.sample = await objectSound(name, engine.audioContext);
+    };
+    void loadSample().catch(() => {
       if (!native) setError(name + ' is using its built-in sound. The clip was unavailable.');
     }).finally(() => {
       add(item, slot, true);
@@ -176,7 +180,9 @@ export function App() {
   }
 
   function drawObject(suggestion: Suggestion, position: Position, image: string, drawing: DrawingSize) {
-    return prepareObject({ ...createObject(suggestion, position), image, drawing }, firstFree);
+    const prepared = prepareObject({ ...createObject(suggestion, position), image, drawing }, firstFree);
+    if (prepared) motion.startFromGesture();
+    return prepared;
   }
 
   function addPhoto(name: string, photo: string) {
@@ -185,6 +191,7 @@ export function App() {
     const suggestion = doodleSuggestion(label ?? name.replaceAll(' ', '_'));
     const item = createObject(suggestion, { x: (cameraSlot + 0.5) / slots.length, y: 0.36 });
     item.image = label ? import.meta.env.BASE_URL + drawingFile(suggestion.name) : photo;
+    if (label && photoMeanings.has(label)) item.name = name[0].toUpperCase() + name.slice(1);
     return prepareObject(item, cameraSlot, label !== undefined);
   }
 
@@ -193,7 +200,7 @@ export function App() {
     solo.remove(item.id);
     engine.change(index, null);
     persist();
-    setStatus(engine.running && slots[index] ? item.name + ' leaves on the next bar.' : item.name + ' removed from the mix.');
+    setStatus(engine.pending.has(index) ? item.name + ' leaves on the next bar.' : item.name + ' removed from the mix.');
     refresh(value => value + 1);
   }
 
@@ -234,6 +241,13 @@ export function App() {
           </div>;
         })}
       </Drawing>
+      {motion.supported && pickerSlot === null && cameraSlot === null && <div className="motion-control">
+        {motion.message && <p role="status">{motion.message}</p>}
+        <button type="button" aria-pressed={motion.active} disabled={motion.pending} onClick={motion.toggle}
+          title="Tilt or shake your phone to play sounds at the screen edges">
+          <Vibrate size={18} aria-hidden="true" />Tilt to play
+        </button>
+      </div>}
       <section className="mix" aria-label="Object slots">
         {performers.map((item, index) => {
           const label = item ? 'Solo ' + item.name : 'Add an object to slot ' + (index + 1);
@@ -268,8 +282,6 @@ export function App() {
           }}>
           {pickerSlot !== null && <div className="picker-options">
             <button type="button" disabled={!isFree(pickerSlot) || !!loadingSound} onClick={() => {
-              // Unlock audio on this tap so the first object can play after recognition.
-              void engine?.audio().catch(() => setError('Tap Play to start audio.'));
               picker.current?.hidePopover();
               pickerTrigger.current?.focus();
               setCameraSlot(pickerSlot);
@@ -291,7 +303,10 @@ export function App() {
             popoverTarget="saved-picker" popoverTargetAction="hide"><X size={18} /></button>
         </div>
       </section>
-      {cameraSlot !== null && <CameraCapture onClose={() => setCameraSlot(null)} onIdentify={addPhoto} />}
+      {cameraSlot !== null && <CameraCapture onClose={() => setCameraSlot(null)} onIdentify={addPhoto} onCapture={() => {
+        void engine?.resumeAudio().catch(() => setError(audioStartError));
+        motion.startFromGesture();
+      }} />}
       <p role="status" className="sr-only">{status}</p>
       {error && <p className="error" role="alert">{error}</p>}
     </main>

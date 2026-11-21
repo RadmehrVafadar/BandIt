@@ -1,6 +1,8 @@
 import type { Sample } from './music.ts';
 
-type ActiveSource = { id: string | null; gain: GainNode; level: number };
+type Mix = 'band' | 'solo';
+type PlayOptions = { pitch?: number; offset?: number; duration?: number; mix?: Mix };
+type ActiveSource = { id: string | null; gain: GainNode; level: number; startsAt: number; mix?: Mix; fadeAt?: number };
 
 export class AudioMixer {
   private output?: { context: AudioContext; input: DynamicsCompressorNode };
@@ -12,6 +14,9 @@ export class AudioMixer {
 
   private get graph() {
     if (!this.output) {
+      // iOS routes Web Audio as ambient sound unless the page requests media playback.
+      const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+      if (session) session.type = 'playback';
       const context = new AudioContext({ latencyHint: 'interactive' });
       const input = context.createDynamicsCompressor();
       input.threshold.value = -15;
@@ -28,20 +33,27 @@ export class AudioMixer {
     return this.graph.context;
   }
 
-  private audibleLevel(id: string | null, level: number) {
-    if (this.soloId !== null) return this.soloId === id ? level : 0;
+  get solo() {
+    return this.soloId;
+  }
+
+  private audibleLevel({ id, level, mix }: ActiveSource) {
+    if (this.soloId !== null) return this.soloId === id && mix !== 'band' ? level : 0;
+    if (mix === 'solo') return 0;
     // Leave a little more headroom for overlapping tails with each new player.
     return level / (1 + .08 * Math.max(0, this.playerCount() - 1));
   }
 
   setSolo(soloId: string | null) {
     this.soloId = soloId;
-    for (const { id, gain, level } of this.sources.values()) {
-      gain.gain.setTargetAtTime(this.audibleLevel(id, level), gain.context.currentTime, 0.005);
+    for (const hit of this.sources.values()) {
+      const now = hit.gain.context.currentTime;
+      if (hit.fadeAt === undefined || now < hit.fadeAt) hit.gain.gain.setTargetAtTime(this.audibleLevel(hit), now, .005);
     }
   }
 
-  play(id: string | null, sample: Sample, time: number, level: number, pitch = 0, offset = 0, duration?: number) {
+  play(id: string | null, sample: Sample, time: number, level: number, options: PlayOptions = {}) {
+    const { pitch = 0, offset = 0, duration, mix } = options;
     const { context, input } = this.graph;
     let buffer = this.buffers.get(sample);
     if (!buffer) {
@@ -53,27 +65,44 @@ export class AudioMixer {
     const gain = context.createGain();
     source.buffer = buffer;
     source.playbackRate.value = 2 ** (pitch / 12);
-    gain.gain.value = this.audibleLevel(id, level);
+    const hit = { id, gain, level, mix, startsAt: time };
+    gain.gain.value = this.audibleLevel(hit);
     source.connect(gain).connect(input);
     source.onended = () => {
       this.sources.delete(source);
       source.disconnect();
       gain.disconnect();
     };
-    this.sources.set(source, { id, gain, level });
+    this.sources.set(source, hit);
     source.start(time, offset, duration);
+  }
+
+  private stop(source: AudioBufferSourceNode, hit: ActiveSource, time: number) {
+    if (hit.fadeAt !== undefined && hit.fadeAt <= time) return;
+    hit.fadeAt = time;
+    if (time <= hit.startsAt) {
+      source.stop(time);
+      return;
+    }
+    hit.gain.gain.cancelScheduledValues(time);
+    hit.gain.gain.setTargetAtTime(0, time, .003);
+    source.stop(time + .015);
   }
 
   fadeOut(id: string, time: number) {
     for (const [source, hit] of this.sources) {
-      if (hit.id !== id) continue;
-      hit.gain.gain.setTargetAtTime(0, time, .003);
-      source.stop(time + .015);
+      if (hit.id === id) this.stop(source, hit, time);
+    }
+  }
+
+  fadeBacking(time: number) {
+    for (const [source, hit] of this.sources) {
+      if (hit.mix === 'band') this.stop(source, hit, time);
     }
   }
 
   stopAll() {
-    for (const source of this.sources.keys()) source.stop();
+    for (const [source, hit] of this.sources) this.stop(source, hit, hit.gain.context.currentTime);
     this.sources.clear();
   }
 

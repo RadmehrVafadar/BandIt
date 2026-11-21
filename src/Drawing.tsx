@@ -96,6 +96,9 @@ export function Drawing({ children, playback, disabled, empty, full, loadingSoun
 
   useEffect(() => {
     const element = canvas.current!;
+    // Keep iOS long-press gestures from taking the active touch away from the canvas.
+    const keepTouch = (event: TouchEvent) => event.preventDefault();
+    element.addEventListener('touchstart', keepTouch, { passive: false });
     function resize() {
       const rect = element.getBoundingClientRect();
       element.width = Math.round(rect.width * window.devicePixelRatio);
@@ -105,7 +108,10 @@ export function Drawing({ children, playback, disabled, empty, full, loadingSoun
     const observer = new ResizeObserver(resize);
     observer.observe(element);
     resize();
-    return () => observer.disconnect();
+    return () => {
+      element.removeEventListener('touchstart', keepTouch);
+      observer.disconnect();
+    };
   }, []);
 
   function point(event: Pick<PointerEvent, 'clientX' | 'clientY'>, rect: DOMRect): Position {
@@ -145,11 +151,6 @@ export function Drawing({ children, playback, disabled, empty, full, loadingSoun
     if (event.type === 'pointerup') move(event);
     activePointer.current = undefined;
     setDrawing(false);
-    if (event.type === 'pointercancel') {
-      strokes.current.pop();
-      setCount(strokes.current.length);
-      paint();
-    }
     updateSuggestions();
   }
 
@@ -187,7 +188,7 @@ export function Drawing({ children, playback, disabled, empty, full, loadingSoun
       <div className="drawing-area">
         <canvas ref={canvas} aria-label="Draw an object" onPointerDown={start} onPointerMove={move}
           onPointerUp={finish} onPointerCancel={finish} onLostPointerCapture={finish}
-          data-disabled={disabled} />
+          onContextMenu={event => event.preventDefault()} data-disabled={disabled} />
         {empty && !count && <div className="board-prompt">
           <img className="sketch-art" src={import.meta.env.BASE_URL + drawingFile('Pencil')} alt="" draggable={false} />
           <strong>Draw an object</strong>
@@ -209,12 +210,7 @@ export function Drawing({ children, playback, disabled, empty, full, loadingSoun
             {suggestions.map(suggestion => (
               <button type="button" key={suggestion.name} className="suggestion"
                 aria-label={'Use ' + suggestion.name + ' sound'}
-                onClick={() => choose(suggestion)}
-                onPointerUp={event => {
-                  if (event.pointerType !== 'touch') return;
-                  const target = document.elementFromPoint(event.clientX, event.clientY);
-                  if (event.currentTarget.contains(target)) choose(suggestion);
-                }}>
+                onClick={() => choose(suggestion)}>
                 <img className="sketch-art" src={illustrationUrl(suggestion)} alt="" draggable={false} />
                 <span>{suggestion.name}</span>
               </button>

@@ -30,6 +30,18 @@ test('new categories get their own repeatable sounds automatically', () => {
   assert.ok(other.some((value, i) => value !== first[i]));
 });
 
+test('pointing and typing devices click while the rodent and musical keyboard have sustained voices', () => {
+  for (const label of ['computer_mouse', 'keyboard']) {
+    const { samples, rate } = render(label);
+    assert.ok(samples.length / rate < 0.1, label);
+    assert.ok(samples.some(value => Math.abs(value) > 0.15), label);
+  }
+  for (const label of ['mouse', 'musical_keyboard']) {
+    const { samples, rate } = render(label);
+    assert.ok(samples.length / rate > 0.15, label);
+  }
+});
+
 test('the built-in horse rhythm has two distinct hoof strikes at their natural pitch', () => {
   const { samples, rate, preserveRecording } = render('horse');
   assert.equal(preserveRecording, true);

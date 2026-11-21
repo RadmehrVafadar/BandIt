@@ -6,7 +6,7 @@ import { arrange } from './music.ts';
 import type { Instrument, Part, Sample, Slots } from './music.ts';
 
 export type Accent = { sample: Sample; steps: Set<number> };
-type Player = { voice: LoopName } & ({ stem: Sample; accent?: Accent } | { beatbox: Sample });
+type Player = { voice: LoopName } & ({ stem: Sample; solo: Accent; accent?: Accent } | { beatbox: Sample });
 type InstrumentBank = ReadonlyMap<string, Instrument>;
 export type Ensemble = { parts: ReadonlyMap<string, Part>; players: ReadonlyMap<string, Player> };
 
@@ -33,13 +33,12 @@ export function buildEnsemble(
       continue;
     }
 
-    const player: Player = { voice, stem: loops.get(part)! };
+    const events = loopScore[voice];
+    const solo = { sample, steps: signatureSteps(events, sample.samples.length / sample.rate) };
+    const player: Player = { voice, stem: loops.get(part)!, solo };
     if (nativePart(item) !== part || sample.preserveRecording) {
-      const events = loopScore[voice];
       const horseIndex = horses.indexOf(id);
-      const steps = horseIndex < 0 ? signatureSteps(events, sample.samples.length / sample.rate)
-        : horseCallSteps(events, horseIndex, horses.length, parts.size);
-      player.accent = { sample, steps };
+      player.accent = horseIndex < 0 ? solo : { sample, steps: horseCallSteps(events, horseIndex, horses.length, parts.size) };
     }
     players.set(id, player);
   }

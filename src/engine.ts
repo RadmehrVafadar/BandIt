@@ -19,6 +19,8 @@ export class BeatEngine {
   private ensemble: Ensemble;
   private audibleEnsemble: Ensemble;
   private signatureEnds = new Map<string, number>();
+  private motionEnabled = false;
+  private playing = false;
   private slots: Slots;
   private frames: ScheduledFrame[] = [];
   private timer?: number;
@@ -62,7 +64,7 @@ export class BeatEngine {
   }
 
   get running() {
-    return this.timer !== undefined;
+    return this.playing;
   }
 
   get scheduledSlots() {
@@ -76,17 +78,25 @@ export class BeatEngine {
     });
   }
 
-  async audio() {
-    const context = this.mixer.context;
+  get audioContext() {
+    return this.mixer.context;
+  }
+
+  async resumeAudio() {
+    const context = this.audioContext;
     if (context.state !== 'running') await context.resume();
-    return context;
   }
 
   async play() {
-    const context = await this.audio();
+    await this.resumeAudio();
     if (this.running) return;
+    this.playing = true;
+    if (!this.motionEnabled) this.startClock();
+  }
+
+  private startClock() {
     this.resumeStep = this.next;
-    this.anchor = context.currentTime + 0.055 - this.playhead * STEP_SECONDS;
+    this.anchor = this.mixer.context.currentTime + 0.055 - this.playhead * STEP_SECONDS;
     this.timer = window.setInterval(this.schedule, 22);
     this.schedule();
     this.draw();
@@ -94,6 +104,7 @@ export class BeatEngine {
 
   pause() {
     if (!this.running) return;
+    this.playing = false;
     clearInterval(this.timer);
     this.timer = undefined;
     cancelAnimationFrame(this.animation);
@@ -111,13 +122,42 @@ export class BeatEngine {
     this.onFrame({ step: this.position, hits: [], slots: this.slots });
   }
 
+  setMotionEnabled(enabled: boolean) {
+    if (enabled === this.motionEnabled) return;
+    const wasPlaying = this.running;
+    this.pause();
+    this.motionEnabled = enabled;
+    if (enabled && this.pending.size) {
+      const slots = this.arrangement;
+      this.pending.clear();
+      this.showSlots(slots);
+    }
+    this.playing = wasPlaying;
+    if (wasPlaying && !enabled) this.startClock();
+  }
+
+  playImpact(id: string) {
+    if (!this.motionEnabled || !this.running || !this.slots.includes(id)) return;
+    if (this.mixer.solo !== null && this.mixer.solo !== id) return;
+    const sample = this.instruments.get(id)?.sample;
+    const context = this.mixer.context;
+    if (!sample || context.state !== 'running') return;
+    this.mixer.fadeOut(id, context.currentTime);
+    this.mixer.play(id, sample, context.currentTime, 1);
+  }
+
+  private showSlots(slots: Slots) {
+    this.slots = this.audibleSlots = slots;
+    this.audibleEnsemble = this.ensemble = this.buildEnsemble();
+    this.onFrame({ step: this.position, hits: [], slots });
+  }
+
   change(slot: number, id: string | null) {
-    if (!this.running) {
+    if (!this.running || this.motionEnabled) {
       this.pending.delete(slot);
-      this.slots = this.slots.map((current, index) => index === slot ? id : current);
-      this.audibleSlots = this.slots;
-      this.audibleEnsemble = this.ensemble = this.buildEnsemble();
-      this.onFrame({ step: this.position, hits: [], slots: this.slots });
+      const previous = this.slots[slot];
+      if (this.running && previous && previous !== id) this.mixer.fadeOut(previous, this.mixer.context.currentTime);
+      this.showSlots(this.slots.map((current, index) => index === slot ? id : current));
       return this.next;
     }
     updateQueue(this.slots, this.pending, slot, id, this.next);
@@ -138,12 +178,14 @@ export class BeatEngine {
     const beat = step % BAR_STEPS;
     const duration = (BAR_STEPS - beat) * STEP_SECONDS;
     const { players } = this.ensemble;
+    const stemSlice = { offset: phase * STEP_SECONDS, duration, mix: 'band' } as const;
     for (const [id, player] of players) {
-      if ('stem' in player) this.mixer.play(id, player.stem, time, player.accent ? .62 : 1, 0, phase * STEP_SECONDS, duration);
+      if ('stem' in player) this.mixer.play(id, player.stem, time, player.accent ? .62 : 1, stemSlice);
     }
     const { bass, strings } = this.accompaniment[Math.floor(phase / BAR_STEPS)];
-    if (bass && players.size >= 2) this.mixer.play(null, bass, time, 1, 0, beat * STEP_SECONDS, duration);
-    if (strings && players.size >= 3) this.mixer.play(null, strings, time, 1, 0, beat * STEP_SECONDS, duration);
+    const slice = { ...stemSlice, offset: beat * STEP_SECONDS };
+    if (bass && players.size >= 2) this.mixer.play(null, bass, time, 1, slice);
+    if (strings && players.size >= 3) this.mixer.play(null, strings, time, 1, slice);
   }
 
   private applyPendingChanges(step: number, time: number) {
@@ -160,12 +202,16 @@ export class BeatEngine {
       }
       return change.id;
     });
-    if (applied.size) this.ensemble = this.buildEnsemble();
+    if (applied.size) {
+      this.ensemble = this.buildEnsemble();
+      if (this.ensemble.players.size < 2) this.mixer.fadeBacking(time);
+    }
     return applied;
   }
 
   private playStep(step: number, time: number) {
-    if (step % BAR_STEPS === 0 || this.resumeStep === step) this.playBar(step, time);
+    const band = this.ensemble.players.size > 1;
+    if (band && (step % BAR_STEPS === 0 || this.resumeStep === step)) this.playBar(step, time);
     const offset = step % PHRASE;
     const hits: number[] = [];
     for (const [index, id] of this.slots.entries()) {
@@ -177,8 +223,15 @@ export class BeatEngine {
       hits.push(index);
       const [, level, pitch] = event;
       const hitTime = time + hitDelay(player.voice, offset);
-      if ('beatbox' in player) this.mixer.play(id, player.beatbox, hitTime, level, pitch);
-      else if (player.accent) this.playAccent(id, player.accent, offset, hitTime, level);
+      if ('beatbox' in player) {
+        this.mixer.play(id, player.beatbox, hitTime, level, { pitch });
+      } else if (!band || this.mixer.solo === id) {
+        const mix = band && !player.accent?.steps.has(offset) ? 'solo' : undefined;
+        if (player.accent) this.playAccent(id, player.solo, offset, hitTime, level, mix);
+        else this.mixer.play(id, player.solo.sample, hitTime, level, { pitch, mix });
+      } else if (player.accent) {
+        this.playAccent(id, player.accent, offset, hitTime, level, 'band');
+      }
     }
     return hits;
   }
@@ -196,16 +249,17 @@ export class BeatEngine {
     }
   };
 
-  private playAccent(id: string, accent: Accent, step: number, time: number, level: number) {
+  private playAccent(id: string, accent: Accent, step: number, time: number, level: number, mix?: 'band' | 'solo') {
     const { sample, steps } = accent;
     const featured = steps.has(step);
     if (featured && time >= (this.signatureEnds.get(id) ?? 0)) {
-      this.mixer.play(id, sample, time, .80 * level);
+      this.mixer.play(id, sample, time, .80 * level, { mix: mix === 'solo' ? 'solo' : undefined });
       this.signatureEnds.set(id, time + sample.samples.length / sample.rate);
     }
-    if (sample.articulation === 'whinny') {
-      if (!featured) this.mixer.play(id, hoofbeats(), time, .46 * level);
-      this.mixer.play(id, horsePluck(), time, (featured ? .25 : .38) * level, chords[Math.floor(step / BAR_STEPS)].root);
+    if (mix === 'band' && sample.articulation === 'whinny') {
+      if (!featured) this.mixer.play(id, hoofbeats(), time, .46 * level, { mix });
+      const pitch = chords[Math.floor(step / BAR_STEPS)].root;
+      this.mixer.play(id, horsePluck(), time, (featured ? .25 : .38) * level, { pitch, mix });
     }
   }
 
