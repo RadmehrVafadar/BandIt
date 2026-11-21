@@ -17,6 +17,23 @@ export const objects = {
 } satisfies Record<ObjectKind, { name: string; role: Role; Icon: typeof Bell }>;
 
 const durations = { keys: 0.23, drum: 0.34, bell: 0.62, cup: 0.2, pencil: 0.105, whistle: 0.22 };
+export type Suggestion = { name: string; kind: ObjectKind };
+
+const familiarSounds: Record<string, ObjectKind> = {
+  key: 'keys', drums: 'drum', cup: 'cup', coffee_cup: 'cup', mug: 'cup', pencil: 'pencil',
+  alarm_clock: 'bell', trumpet: 'whistle', saxophone: 'whistle',
+};
+
+export function doodleSuggestion(label: string): Suggestion {
+  // Give every other category a repeatable voice from the existing sound bank.
+  const kinds = Object.keys(objects) as ObjectKind[];
+  let hash = 0;
+  for (const char of label) hash = (Math.imul(hash, 31) + char.charCodeAt(0)) >>> 0;
+  const kind = familiarSounds[label] ?? kinds[hash % kinds.length];
+  const name = label === 'key' || label === 'drums' ? objects[kind].name :
+    (label[0].toUpperCase() + label.slice(1)).replaceAll('_', ' ');
+  return { name, kind };
+}
 const tone = (frequency: number, time: number) => Math.sin(2 * Math.PI * frequency * time);
 
 export function objectSample(kind: ObjectKind): Sample {

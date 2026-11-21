@@ -105,12 +105,16 @@ const references = (Object.keys(templates) as ObjectKind[]).flatMap(kind =>
   templates[kind].map(strokes => ({ kind, cloud: points(strokes) })),
 );
 
-export function rankSketch(strokes: Stroke[]): ObjectKind[] {
+export function templateScores(strokes: Stroke[]) {
   const cloud = points(strokes);
   const scores = new Map<ObjectKind, number>();
   for (const reference of references) {
     const cost = distance(cloud, reference.cloud) + distance(reference.cloud, cloud);
     scores.set(reference.kind, Math.min(scores.get(reference.kind) ?? Infinity, cost));
   }
-  return [...scores].sort((a, b) => a[1] - b[1]).map(([kind]) => kind);
+  return [...scores].sort((a, b) => a[1] - b[1]);
+}
+
+export function rankSketch(strokes: Stroke[]): ObjectKind[] {
+  return templateScores(strokes).map(([kind]) => kind);
 }

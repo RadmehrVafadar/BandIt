@@ -2,16 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent, ReactNode } from 'react';
 import { PencilLine, Trash2, Undo2 } from 'lucide-react';
 import type { DrawingSize, Position } from './music.ts';
-import { bounds, rankSketch } from './sketch.ts';
-import type { ObjectKind, Stroke } from './sketch.ts';
-import { objects } from './objects.ts';
+import { bounds, templateScores } from './sketch.ts';
+import type { Stroke } from './sketch.ts';
+import { doodlePixels } from './doodle.ts';
+import { objects, doodleSuggestion } from './objects.ts';
+import type { Suggestion } from './objects.ts';
 
 type Props = {
   children: ReactNode;
   disabled: boolean;
   empty: boolean;
   full: boolean;
-  onChoose: (kind: ObjectKind, position: Position, image: string, size: DrawingSize) => boolean;
+  onChoose: (suggestion: Suggestion, position: Position, image: string, size: DrawingSize) => boolean;
 };
 
 export function Drawing({ children, disabled, empty, full, onChoose }: Props) {
@@ -20,12 +22,49 @@ export function Drawing({ children, disabled, empty, full, onChoose }: Props) {
   const activePointer = useRef<number>(undefined);
   const [count, setCount] = useState(0);
   const [drawing, setDrawing] = useState(false);
-  const [suggestions, setSuggestions] = useState<ObjectKind[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const worker = useRef<Worker>(undefined);
+  const revision = useRef(0);
+  const [recognition, setRecognition] = useState('');
+
+  useEffect(() => () => { worker.current?.terminate(); worker.current = undefined; }, []);
 
   function updateSuggestions() {
     const { width, height } = canvas.current!.getBoundingClientRect();
     const sketch = strokes.current.map(stroke => stroke.map(({ x, y }) => ({ x: x * width, y: y * height })));
-    setSuggestions(sketch.length ? rankSketch(sketch).slice(0, 3) : []);
+    const id = ++revision.current;
+    setSuggestions([]);
+    setRecognition('');
+    if (!sketch.length) return;
+    const ranked = templateScores(sketch);
+    const fallback = ranked.slice(0, 3).map(([kind]) => ({ kind, name: objects[kind].name }));
+    const failed = () => {
+      if (id !== revision.current) return;
+      setRecognition('Using basic sounds');
+      setSuggestions(fallback);
+    };
+    setRecognition('Recognizing sketch…');
+    try {
+      const recognizer = worker.current ??= new Worker(new URL('./doodle.worker.ts', import.meta.url), { type: 'module' });
+      recognizer.onerror = () => {
+        recognizer.terminate();
+        worker.current = undefined;
+        failed();
+      };
+      recognizer.onmessage = ({ data }: MessageEvent<{ id: number; labels: string[] }>) => {
+        if (data.id !== revision.current || data.id !== id) return;
+        if (!data.labels.length) return failed();
+        const guesses = data.labels.map(doodleSuggestion);
+        // Preserve close matches to the six original instrument templates.
+        if (ranked[0][1] < 0.004) guesses.unshift(fallback[0]);
+        setSuggestions(guesses.filter((guess, i) => guesses.findIndex(g => g.name === guess.name) === i).slice(0, 3));
+        setRecognition('');
+      };
+      const base = new URL(import.meta.env.BASE_URL + 'doodlenet/', document.baseURI).href;
+      recognizer.postMessage({ id, base, pixels: doodlePixels(sketch) });
+    } catch {
+      failed();
+    }
   }
 
   function paint() {
@@ -73,6 +112,7 @@ export function Drawing({ children, disabled, empty, full, onChoose }: Props) {
   function start(event: PointerEvent<HTMLCanvasElement>) {
     if (disabled || activePointer.current !== undefined || event.button !== 0) return;
     const element = event.currentTarget;
+    revision.current++;
     activePointer.current = event.pointerId;
     element.setPointerCapture(event.pointerId);
     strokes.current.push([point(event, element.getBoundingClientRect())]);
@@ -115,13 +155,16 @@ export function Drawing({ children, disabled, empty, full, onChoose }: Props) {
   }
 
   function clear() {
+    revision.current++;
+    setRecognition('');
     strokes.current = [];
     setCount(0);
     setSuggestions([]);
     paint();
   }
 
-  function choose(kind: ObjectKind) {
+  function choose(suggestion: Suggestion) {
+    if (disabled || drawing || !strokes.current.length) return;
     const element = canvas.current!;
     const box = bounds(strokes.current);
     const padding = Math.ceil(3 * window.devicePixelRatio);
@@ -135,7 +178,7 @@ export function Drawing({ children, disabled, empty, full, onChoose }: Props) {
     crop.getContext('2d')!.drawImage(element, left, top, crop.width, crop.height, 0, 0, crop.width, crop.height);
     const position = { x: (box.left + box.right) / 2, y: (box.top + box.bottom) / 2 };
     const size = { width: crop.width / element.width, height: crop.height / element.height, aspect: crop.width / crop.height };
-    if (onChoose(kind, position, crop.toDataURL(), size)) clear();
+    if (onChoose(suggestion, position, crop.toDataURL(), size)) clear();
   }
 
   return (
@@ -144,14 +187,19 @@ export function Drawing({ children, disabled, empty, full, onChoose }: Props) {
         <h2 id="board-title" className="sr-only">Drawing board</h2>
         {suggestions.length
           ? <div className="prediction" role="group" aria-label="Sound suggestions">
-            <span>Did you draw</span>
-            {suggestions.map(kind => {
-              const { Icon, name } = objects[kind];
-              return <button type="button" key={kind} className="suggestion" aria-label={'Use ' + name + ' sound'}
-                disabled={drawing || disabled} onClick={() => choose(kind)}><Icon size={19} aria-hidden="true" />{name}</button>;
+            <span>{recognition || 'Did you draw'}</span>
+            {suggestions.map(({ kind, name }) => {
+              const { Icon } = objects[kind];
+              return <button type="button" key={name} className="suggestion" aria-label={'Use ' + name + ' sound'}
+                disabled={drawing || disabled} onClick={() => choose({ kind, name })}
+                onPointerUp={event => {
+                  if (event.pointerType !== 'touch') return;
+                  const target = document.elementFromPoint(event.clientX, event.clientY);
+                  if (event.currentTarget.contains(target)) choose({ kind, name });
+                }}><Icon size={19} aria-hidden="true" />{name}</button>;
             })}
           </div>
-          : <p className="prediction">Sketch an object to find its sound.</p>}
+          : <p className="prediction" role="status">{recognition || 'Sketch an object to find its sound.'}</p>}
       </div>
       <div className="drawing-workspace">
         <div className="tool-rail" aria-label="Drawing tools" role="group">
