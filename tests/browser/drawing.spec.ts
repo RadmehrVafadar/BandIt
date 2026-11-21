@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { createBeatboxPack } from '../../src/beatbox.ts';
 import { drawingSample } from '../../src/drawing-sounds.ts';
+import { hitDelay, loopScore } from '../../src/loop-score.ts';
+import { STEP_SECONDS } from '../../src/music.ts';
 
 const key = [
   [[0, 11], [4, 3], [13, 0], [22, 4], [24, 13], [20, 22], [11, 25], [3, 20], [0, 11]],
@@ -466,6 +468,10 @@ test('beatbox voices play from fresh slots and restore after reload', async ({ p
   const vocal = voices.find(voice => voice.role === 'melody')!.sample;
   await expect.poll(async () => (await notes()).some(hit =>
     hit.duration === vocal.samples.length / vocal.rate && hit.speed !== 1)).toBe(true);
+  const [firstVocal, nextVocal] = (await notes()).filter(hit => hit.duration === vocal.samples.length / vocal.rate);
+  const [[firstStep], [nextStep]] = loopScore.bell;
+  expect(nextVocal.at - firstVocal.at).toBeCloseTo((nextStep - firstStep) * STEP_SECONDS
+    + hitDelay('bell', nextStep) - hitDelay('bell', firstStep), 5);
   expect((await notes()).some(hit => hit.duration === 10)).toBe(false);
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
   await page.getByRole('button', { name: 'Remove Tss Hat' }).click();

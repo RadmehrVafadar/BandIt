@@ -59,11 +59,14 @@ Drum, Keys, Cup, and Bell each have a recorded four-bar part and play without an
 Other drawings take an available part and play their own sound at its natural pitch over a quieter backing.
 Short taps can follow the whole rhythm, while long sounds like a starting engine get room to finish.
 If a loop file is unavailable, the browser recreates its arrangement from the built-in instrument.
-After installing Playwright Chromium, run `node scripts/render-loops.ts` to rebuild the four WAV files from the shared score.
+After installing Playwright Chromium, edit the [shared score](src/loop-score.ts) and run `node scripts/render-loops.ts` to rebuild the four WAV files.
 
-Hear the [horse call](public/demo-sounds/horse.wav), the [horse with a drum](docs/samples/horse-and-drum.wav), or the [mix as drum, keys, and cup join](docs/samples/building-the-band.wav).
-The [earlier listening comparison](docs/samples/original-and-loops.wav) captures the move from the original arrangement to the four loop parts.
-Hear the same four drawings twice in the [bass and strings comparison](docs/samples/bass-and-strings.wav), with the new mix starting at 0:10.5.
+**Tabletop Bingo** opens with a three-note bell call answered lower, then repeats the call up to B-flat.
+The drum carries a plucked bass line between kicks, the cup rings in two pitches on the backbeat, and the keyring leaves the last beat open for the return to C minor.
+Listen to the [full mix](docs/samples/tabletop-bingo.wav) or hear the previous and revised grooves at equal loudness in the [before-and-after clip](docs/samples/original-and-loops.wav).
+Hear the instruments enter one per bar in the [layered demo](docs/samples/building-the-band.wav), or compare the [horse call](public/demo-sounds/horse.wav) with the [horse and drum duet](docs/samples/horse-and-drum.wav).
+The [bass and strings comparison](docs/samples/bass-and-strings.wav) demonstrates how those backing parts enter in the previous arrangement.
+The editable exports cover the four drawing layers using General MIDI instruments. [MIDI](docs/samples/tabletop-bingo.mid) · [music-production project](docs/samples/tabletop-bingo.json) · [music-production skill](https://github.com/owoevan-dev/music-skill)
 
 Sketch recognition runs in a browser worker using [DoodleNet by Yining Shi](https://github.com/yining1023/doodleNet), trained on the [Google Quick, Draw! dataset](https://github.com/googlecreativelab/quickdraw-dataset) (CC BY 4.0).
 The site serves the [model weights and matching labels](https://github.com/ml5js/ml5-data-and-models/tree/main/models/doodlenet) with the app and keeps drawings on the device.
@@ -71,8 +74,8 @@ Close matches to the original six instrument templates remain available, and the
 The strip shows up to eight illustrated guesses in ranked order and scrolls horizontally on smaller screens.
 Picking an illustration adds it to the stage where you drew and gives it the selected object's sound.
 Try one bell to hear the melody, then draw more bells to add the pulse, backbeat, and offbeats.
-The bass and melody move through C minor, A-flat major, E-flat major, and G minor before returning to C.
-With two or more drawings, a low plucked bass comes in on the offbeat in the second bar.
+The harmony moves through Cm7, A-flat major 7, E-flat 6, and G7 before returning to C minor.
+With two or more drawings, a quieter bass joins on the offbeat in the second bar.
 With three or four, soft strings enter halfway through the phrase and release before it repeats.
 Soloing a drawing mutes both backing parts.
 Lineup changes land on the next downbeat.

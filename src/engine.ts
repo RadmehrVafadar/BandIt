@@ -1,6 +1,6 @@
 import { renderAccompaniment } from './accompaniment.ts';
 import { hoofbeats, horseCallSteps, horsePluck } from './horse.ts';
-import { chordRoots, loopScore, loopVoice, nativePart, signatureSteps } from './loop-score.ts';
+import { chords, hitDelay, loopScore, loopVoice, nativePart, signatureSteps } from './loop-score.ts';
 import type { LoopBank } from './loops.ts';
 import { BAR_STEPS, STEP_SECONDS, PHRASE, arrange, bounceHeight, updateQueue } from './music.ts';
 import type { Change, Hit, Instrument, Part, Sample, Slots } from './music.ts';
@@ -248,8 +248,9 @@ export class BeatEngine {
           const event = player.events.find(([at]) => at === offset);
           if (!event) return;
           hits.push(index);
-          if ('beatbox' in player) this.hit(id, player.beatbox, time, event[1], event[2]);
-          else if (player.accent) this.playAccent(id, player.accent, offset, time, event[1]);
+          const hitTime = time + hitDelay(loopVoice[player.part], offset);
+          if ('beatbox' in player) this.hit(id, player.beatbox, hitTime, event[1], event[2]);
+          else if (player.accent) this.playAccent(id, player.accent, offset, hitTime, event[1]);
         });
       } else this.resumeStep = step + 1;
       this.frames.push({ step, time, hits, slots: this.slots, ensemble: this.ensemble, applied });
@@ -265,7 +266,7 @@ export class BeatEngine {
     }
     if (sample.articulation === 'whinny') {
       if (!featured) this.hit(id, hoofbeats(), time, .46 * level);
-      this.hit(id, horsePluck(), time, (featured ? .25 : .38) * level, chordRoots[Math.floor(step / BAR_STEPS)]);
+      this.hit(id, horsePluck(), time, (featured ? .25 : .38) * level, chords[Math.floor(step / BAR_STEPS)].root);
     }
   }
 
