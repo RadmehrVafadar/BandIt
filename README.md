@@ -73,6 +73,8 @@ The site serves the [model weights and matching labels](https://github.com/ml5js
 Close matches to the original six instrument templates remain available, and these templates provide suggestions if the model cannot load.
 The strip shows up to eight illustrated guesses in ranked order and scrolls horizontally on smaller screens.
 Picking an illustration adds it to the stage where you drew and gives it the selected object's sound.
+When bouncing objects touch, they knock each other sideways and settle back toward where you placed them, with each landing still timed to the beat.
+Reduced motion keeps performers in place.
 Try one bell to hear the melody, then draw more bells to add the pulse, backbeat, and offbeats.
 The harmony moves through Cm7, A-flat major 7, E-flat 6, and G7 before returning to C minor.
 With two or more drawings, a quieter bass joins on the offbeat in the second bar.
