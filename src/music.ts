@@ -8,19 +8,37 @@ type Hit = readonly [step: number, level: number, semitones?: number];
 
 export type Role = 'kick' | 'snare' | 'shaker' | 'melody' | 'bell' | 'cup';
 export type Part = 'pulse' | 'backbeat' | 'motion' | 'hook';
-export const PHRASE = 2 * BAR_STEPS;
+export const PHRASE = 4 * BAR_STEPS;
 
-// The hook answers itself in bar two. Give every attack its own subdivision.
+function bars(...patterns: (readonly Hit[])[]): Hit[] {
+  return patterns.flatMap((events, bar) =>
+    events.map(([step, level, pitch]): Hit => [bar * BAR_STEPS + step, level, pitch]));
+}
+
+const snare: Hit[] = [[4, .76], [12, .85]];
+const offbeats: Hit[] = [[2, .50], [10, .46], [14, .35]];
+// Cm, Ab, Eb, Gm. The hook repeats its opening rhythm over the third chord.
 export const score: Record<Part, readonly Hit[]> = {
-  pulse: [[0, .92], [8, .8], [16, .92], [24, .8], [30, .55]],
-  backbeat: [[4, .76], [12, .85], [20, .76], [28, .85]],
-  motion: [[2, .52], [6, .38], [10, .52], [14, .44], [18, .52], [22, .38], [26, .5]],
-  hook: [[1, .76, 0], [7, .65, 3], [11, .72, 7], [17, .76, 7], [23, .65, 3], [29, .72, 0]],
+  pulse: bars([[0, .92, 0], [8, .8, 0]],
+    [[0, .92, -4], [8, .8, -4], [14, .55, 3]],
+    [[0, .92, 3], [8, .8, 3]],
+    [[0, .92, -5], [8, .8, -5], [14, .57, -5]]),
+  backbeat: bars(snare, snare, snare, snare),
+  motion: bars(offbeats, [[2, .5], [6, .36], [10, .46]], offbeats, [[2, .5], [10, .46]]),
+  hook: bars([[3, .76, 0], [6, .64, 3], [11, .72, 7]],
+    [[1, .76, 8], [7, .62, 3], [11, .72, 0]],
+    [[3, .76, 3], [6, .64, 7], [11, .72, 10]],
+    [[1, .76, 7], [6, .64, 10], [9, .72, 2]]),
 };
-const soloLead: Hit = [0, .82, 0];
+
 export function phrase(part: Part, solo: boolean): readonly Hit[] {
   if (!solo || part === 'pulse') return score[part];
-  return [soloLead, ...score[part].filter(([step]) => step > 1)];
+  return score[part].flatMap((hit, i, events): Hit[] => {
+    const downbeat = Math.floor(hit[0] / BAR_STEPS) * BAR_STEPS;
+    if (i > 0 && events[i - 1][0] >= downbeat) return [hit];
+    const lead: Hit = [downbeat, .82, hit[2]];
+    return part === 'hook' ? [lead] : [lead, hit];
+  });
 }
 
 const fit: Record<Role, Record<Part, number>> = {

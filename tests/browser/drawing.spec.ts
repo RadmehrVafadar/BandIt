@@ -173,7 +173,14 @@ test('four identical bells play distinct parts on the same floor grid', async ({
   const lineup = await bells.evaluateAll(items => items.map(item => item.getAttribute('data-part')));
   const parts = [...lineup].sort();
   expect(parts).toEqual(['backbeat', 'hook', 'motion', 'pulse']);
-  for (const part of parts) await expect(bells.and(page.locator('[data-part="' + part + '"]'))).toHaveAttribute('data-hit', 'true');
+  const landed = new Set<string>();
+  await expect.poll(async () => {
+    const hits = await bells.evaluateAll(items => items
+      .filter(item => item.getAttribute('data-hit') === 'true')
+      .map(item => item.getAttribute('data-part')!));
+    for (const part of hits) landed.add(part);
+    return [...landed].sort();
+  }, { intervals: [40] }).toEqual(parts);
   await page.reload();
   await expect(bells).toHaveCount(4);
   expect(await bells.evaluateAll(items => items.map(item => item.getAttribute('data-part')))).toEqual(lineup);
@@ -360,6 +367,40 @@ for (const source of ['demo', 'live']) {
     }
   });
 }
+
+test('preserved recordings play at their original speed through a chord change', async ({ page }) => {
+  await page.addInitScript(() => {
+    const speeds: number[] = [];
+    Object.assign(window, { speeds });
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (...args) {
+      speeds.push(this.playbackRate.value);
+      return start.apply(this, args);
+    };
+  });
+  await page.goto('/');
+  await expect(page.getByLabel('Draw an object')).toHaveAttribute('data-disabled', 'false');
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>(resolve => {
+      const request = indexedDB.open('pocket-band');
+      request.onsuccess = () => resolve(request.result);
+    });
+    const tx = db.transaction(['instruments', 'stage'], 'readwrite');
+    const samples = Float32Array.from({ length: 800 }, (_, i) => .2 * Math.sin(i / 7));
+    tx.objectStore('instruments').put({
+      id: 'car', name: 'Car', kind: 'drum', role: 'kick',
+      sample: { samples, rate: 8000, preserveRecording: true },
+    });
+    tx.objectStore('stage').put(['car', null, null, null], 'slots');
+    await new Promise<void>(resolve => { tx.oncomplete = () => resolve(); });
+    db.close();
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  const speeds = () => page.evaluate(() => (window as unknown as { speeds: number[] }).speeds);
+  await expect.poll(async () => (await speeds()).length, { timeout: 7000 }).toBeGreaterThanOrEqual(3);
+  expect((await speeds()).every(speed => speed === 1)).toBe(true);
+});
 
 test('keeps basic sounds playable if the classifier cannot load', async ({ page }) => {
   await page.route('**/doodlenet/model.json', route => route.abort());

@@ -31,7 +31,32 @@ test('the bell quartet interlocks and its hook answers in C minor', () => {
   assert.deepEqual(arrange(bells.slice(1), band).get('1'), 'pulse');
   const steps = Object.values(score).flatMap(events => events.map(([step]) => step));
   assert.equal(new Set(steps).size, steps.length);
-  assert.deepEqual(new Set(score.hook.map(([, , note]) => note)), new Set([0, 3, 7]));
+});
+
+test('the bass and hook outline the same four chords through the turnaround', () => {
+  const chords = [[0, 3, 7], [8, 0, 3], [3, 7, 10], [7, 10, 2]];
+  assert.equal(PHRASE, chords.length * BAR_STEPS);
+  for (const [bar, chord] of chords.entries()) {
+    const start = bar * BAR_STEPS;
+    const bass = score.pulse.find(([step]) => step === start);
+    assert.ok(bass);
+    assert.equal(((bass[2] ?? 0) + 12) % 12, chord[0]);
+    const melody = score.hook.filter(([step]) => step >= start && step < start + BAR_STEPS);
+    assert.ok(melody.length >= 2);
+    for (const [, , note] of melody) assert.ok(chord.includes((note! + 12) % 12));
+  }
+});
+
+test('a single object lands on each downbeat, including after the band drops out', () => {
+  for (const part of Object.keys(score) as (keyof typeof score)[]) {
+    const events = phrase(part, true);
+    const steps = events.map(([step]) => step);
+    assert.deepEqual(steps, [...new Set(steps)].sort((a, b) => a - b));
+    for (let downbeat = 0; downbeat < PHRASE; downbeat += BAR_STEPS) {
+      assert.ok(steps.includes(downbeat), part + ' missing downbeat ' + downbeat);
+      assert.equal(bounceHeight(events, downbeat, downbeat), 0);
+    }
+  }
 });
 
 test('every combination of source roles has unique parts and an ensemble pulse', () => {
@@ -45,7 +70,7 @@ test('every combination of source roles has unique parts and an ensemble pulse',
   check([]);
 });
 
-test('solo and ensemble bounces follow both bars including entrance and wrap', () => {
+test('solo and ensemble bounces follow the phrase including entrance and wrap', () => {
   for (const part of Object.keys(score) as (keyof typeof score)[]) {
     for (const solo of [false, true]) {
       const events = phrase(part, solo);

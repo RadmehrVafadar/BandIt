@@ -212,7 +212,7 @@ export class BeatEngine {
           const event = player?.events.find(([offset]) => offset === step % PHRASE);
           if (!player || !event) return;
           const [, level, pitch = 0] = event;
-          this.hit(id, player.sample, time, level, pitch);
+          this.hit(id, player.sample, time, level, player.sample.preserveRecording ? 0 : pitch);
           hits.push(index);
         });
       }
