@@ -1,8 +1,10 @@
-import { BAR_STEPS, STEP_SECONDS, patterns, updateQueue } from './music.ts';
-import type { Change, Instrument, Sample, Slots } from './music.ts';
+import { partSample } from './part-sample.ts';
+import { BAR_STEPS, STEP_SECONDS, PHRASE, arrange, bounceHeight, phrase, updateQueue } from './music.ts';
+import type { Change, Instrument, Part, Sample, Slots } from './music.ts';
 
 type Frame = { step: number; hits: number[]; slots: Slots };
-type ScheduledFrame = Frame & { time: number; applied: Map<number, Change> };
+type Player = { part: Part; events: ReturnType<typeof phrase>; sample: Sample };
+type ScheduledFrame = Frame & { ensemble: Map<string, Player>; time: number; applied: Map<number, Change> };
 const LOOKAHEAD = 0.105;
 
 export class BeatEngine {
@@ -10,7 +12,10 @@ export class BeatEngine {
   private context?: AudioContext;
   private compressorInput!: DynamicsCompressorNode;
   private buffers = new WeakMap<Sample, AudioBuffer>();
-  private songNodes = new Map<AudioBufferSourceNode, { id: string; gain: GainNode; level: number; voices: number }>();
+  private songNodes = new Map<AudioBufferSourceNode, { id: string; gain: GainNode; level: number }>();
+  private ensemble: Map<string, Player>;
+  private audibleEnsemble: Map<string, Player>;
+  private variants = new WeakMap<Sample, Map<Part, Sample>>();
   private soloId: string | null = null;
   private slots: Slots;
   private frames: ScheduledFrame[] = [];
@@ -27,9 +32,41 @@ export class BeatEngine {
     private readonly instruments: Map<string, Instrument>,
     private readonly onFrame: (frame: Frame) => void,
     private readonly onClock: (step: number, landed: string[]) => void,
+    savedParts = new Map<string, Part>(),
   ) {
     this.slots = slots;
     this.audibleSlots = slots;
+    this.ensemble = this.buildEnsemble(savedParts);
+    this.audibleEnsemble = this.ensemble;
+  }
+
+  private assign(slots: Slots, previous = new Map(Array.from(this.ensemble ?? [], ([id, player]) => [id, player.part]))) {
+    const players = slots.flatMap(id => id && this.instruments.has(id) ? [this.instruments.get(id)!] : []);
+    return arrange(players, previous);
+  }
+
+  get plannedParts() {
+    return this.assign(this.arrangement);
+  }
+
+  private buildEnsemble(previous?: Map<string, Part>) {
+    const parts = this.assign(this.slots, previous);
+    return new Map(Array.from(parts, ([id, part]) => {
+      const { sample } = this.instruments.get(id)!;
+      const variants = this.variants.get(sample) ?? new Map<Part, Sample>();
+      if (!variants.has(part)) variants.set(part, partSample(sample, part));
+      this.variants.set(sample, variants);
+      return [id, { part, events: phrase(part, parts.size === 1), sample: variants.get(part)! }];
+    }));
+  }
+
+  part(id: string) {
+    return this.audibleEnsemble.get(id)?.part;
+  }
+
+  height(id: string, step: number, enteredAt: number) {
+    const player = this.audibleEnsemble.get(id) ?? this.ensemble.get(id);
+    return player ? bounceHeight(player.events, step, enteredAt) : 1;
   }
 
   get running() {
@@ -85,6 +122,7 @@ export class BeatEngine {
       }
     }
     this.slots = this.audibleSlots;
+    this.ensemble = this.audibleEnsemble;
     this.next = this.position + 1;
     this.frames = [];
     this.onFrame({ step: this.position, hits: [], slots: this.slots });
@@ -95,6 +133,7 @@ export class BeatEngine {
       this.pending.delete(slot);
       this.slots = this.slots.map((current, index) => index === slot ? id : current);
       this.audibleSlots = this.slots;
+      this.audibleEnsemble = this.ensemble = this.buildEnsemble();
       this.onFrame({ step: this.position, hits: [], slots: this.slots });
       return this.next;
     }
@@ -105,7 +144,7 @@ export class BeatEngine {
   setSolo(id: string | null) {
     this.soloId = id;
     for (const hit of this.songNodes.values()) {
-      hit.gain.gain.setTargetAtTime(this.audibleLevel(hit.id, hit.level, hit.voices), hit.gain.context.currentTime, 0.005);
+      hit.gain.gain.setTargetAtTime(this.audibleLevel(hit.id, hit.level), hit.gain.context.currentTime, 0.005);
     }
   }
 
@@ -114,12 +153,12 @@ export class BeatEngine {
     if (this.context) void this.context.close();
   }
 
-  private audibleLevel(id: string, level: number, voices: number) {
-    if (this.soloId === null) return level / voices;
+  private audibleLevel(id: string, level: number) {
+    if (this.soloId === null) return level;
     return this.soloId === id ? level : 0;
   }
 
-  private hit({ id, sample, role }: Instrument, time: number, level: number, pitch: number) {
+  private hit(id: string, sample: Sample, time: number, level: number, pitch: number) {
     const context = this.context!;
     let buffer = this.buffers.get(sample);
     if (!buffer) {
@@ -131,16 +170,14 @@ export class BeatEngine {
     const gain = context.createGain();
     source.buffer = buffer;
     source.playbackRate.value = 2 ** (pitch / 12);
-    // Same-role sketches strike in phase and can contain identical samples.
-    const voices = this.slots.filter(slot => slot && this.instruments.get(slot)?.role === role).length;
-    gain.gain.value = this.audibleLevel(id, level, voices);
+    gain.gain.value = this.audibleLevel(id, level);
     source.connect(gain).connect(this.compressorInput);
     source.onended = () => {
       this.songNodes.delete(source);
       source.disconnect();
       gain.disconnect();
     };
-    this.songNodes.set(source, { id, gain, level, voices });
+    this.songNodes.set(source, { id, gain, level });
     source.start(time);
   }
 
@@ -160,19 +197,20 @@ export class BeatEngine {
           return change.id;
         });
       }
+      if (applied.size) this.ensemble = this.buildEnsemble();
       const hits: number[] = [];
       if (time >= now - 0.025) {
         this.slots.forEach((id, index) => {
-          const instrument = id ? this.instruments.get(id) : undefined;
-          if (!instrument) return;
-          const event = patterns[instrument.role].find(([offset]) => offset === beat);
-          if (!event) return;
+          if (!id) return;
+          const player = this.ensemble.get(id);
+          const event = player?.events.find(([offset]) => offset === step % PHRASE);
+          if (!player || !event) return;
           const [, level, pitch = 0] = event;
-          this.hit(instrument, time, level, pitch);
+          this.hit(id, player.sample, time, level, pitch);
           hits.push(index);
         });
       }
-      this.frames.push({ step, time, hits, slots: this.slots, applied });
+      this.frames.push({ step, time, hits, slots: this.slots, ensemble: this.ensemble, applied });
     }
   };
 
@@ -187,6 +225,7 @@ export class BeatEngine {
       frame = this.frames.shift()!;
       this.position = frame.step;
       this.audibleSlots = frame.slots;
+      this.audibleEnsemble = frame.ensemble;
     }
     if (frame) {
       this.onFrame(frame);

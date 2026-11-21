@@ -35,7 +35,9 @@ Pocket Band uses [@audio/synth-sfx](https://audio.js.org/modules/synth-sfx/) to 
 New classifier labels automatically get a repeatable plucked sound until they are assigned a sound family in src/drawing-sounds.ts.
 The strip shows up to eight illustrated guesses in ranked order and scrolls horizontally on smaller screens.
 Picking an illustration assigns its sound to your freehand drawing.
-Layers that share a sound role are balanced together, and soloing restores the selected layer's full level.
+Try drawing four bells: one plays a damped low pulse, one the backbeat, one muted offbeats, and one a ringing C-minor hook.
+Every lineup uses the same two-bar score, with parts assigned to suit the sounds and changes landing on the next bar.
+Solo an object to hear its part in the arrangement.
 Pocket Band saves the original sketches, positions, and sounds in IndexedDB for the current browser profile and origin.
 Older recorded instruments already onstage still use their images and recordings.
 You can bring other previously saved instruments back from **Saved objects**.
