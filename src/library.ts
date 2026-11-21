@@ -1,6 +1,6 @@
 import type { Instrument, Slots } from './music.ts';
 
-const defaultSlots = ['mug', 'pen', null, null];
+export const emptyStage: Slots = [null, null, null, null];
 
 export function openLibrary(name = 'pocket-band'): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -21,8 +21,8 @@ export function readLibrary(db: IDBDatabase): Promise<{ instruments: Instrument[
     const stage = tx.objectStore('stage').get('slots');
     tx.oncomplete = () => {
       const ids = new Set(['mug', 'pen', ...instruments.result.map(item => item.id)]);
-      const saved: Slots = stage.result ?? defaultSlots;
-      const slots = defaultSlots.map((_, index) => {
+      const saved: Slots = stage.result ?? (instruments.result.length ? ['mug', 'pen', null, null] : emptyStage);
+      const slots = emptyStage.map((_, index) => {
         const id = saved[index];
         return id && ids.has(id) ? id : null;
       });
@@ -32,19 +32,12 @@ export function readLibrary(db: IDBDatabase): Promise<{ instruments: Instrument[
   });
 }
 
-export function storeInstrument(db: IDBDatabase, instrument: Instrument) {
-  return write(db, 'instruments', store => store.put(instrument));
-}
-
-export function storeStage(db: IDBDatabase, slots: Slots) {
-  return write(db, 'stage', store => store.put(slots, 'slots'));
-}
-
-function write(db: IDBDatabase, kind: string, action: (store: IDBObjectStore) => void) {
+export function storeStage(db: IDBDatabase, slots: Slots, instrument?: Instrument) {
   return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(kind, 'readwrite');
+    const tx = db.transaction(instrument ? ['instruments', 'stage'] : 'stage', 'readwrite');
     tx.oncomplete = () => resolve();
     tx.onabort = () => reject(tx.error);
-    action(tx.objectStore(kind));
+    if (instrument) tx.objectStore('instruments').put(instrument);
+    tx.objectStore('stage').put(slots, 'slots');
   });
 }

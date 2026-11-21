@@ -1,18 +1,16 @@
 import { BAR_STEPS, STEP_SECONDS, patterns, updateQueue } from './music.ts';
-import type { Change, Instrument, Role, Sample, Slots } from './music.ts';
+import type { Change, Instrument, Sample, Slots } from './music.ts';
 
 type Frame = { step: number; hits: number[]; slots: Slots };
-type ScheduledFrame = Frame & { time: number };
+type ScheduledFrame = Frame & { time: number; applied: Map<number, Change> };
 const LOOKAHEAD = 0.105;
 
 export class BeatEngine {
   readonly pending = new Map<number, Change>();
   private context?: AudioContext;
-  private output?: GainNode;
   private compressorInput!: DynamicsCompressorNode;
   private buffers = new WeakMap<Sample, AudioBuffer>();
   private songNodes = new Set<AudioBufferSourceNode>();
-  private previewNodes = new Set<AudioBufferSourceNode>();
   private slots: Slots;
   private frames: ScheduledFrame[] = [];
   private timer?: number;
@@ -20,14 +18,17 @@ export class BeatEngine {
   private anchor = 0;
   private next = 0;
   private position = -1;
-  private muted = false;
+  private playhead = -2.4;
+  private audibleSlots: Slots;
 
   constructor(
     slots: Slots,
     private readonly instruments: Map<string, Instrument>,
     private readonly onFrame: (frame: Frame) => void,
+    private readonly onClock: (step: number, landed: string[]) => void,
   ) {
     this.slots = slots;
+    this.audibleSlots = slots;
   }
 
   get running() {
@@ -38,16 +39,23 @@ export class BeatEngine {
     return this.slots;
   }
 
-  async audio() {
+  get arrangement() {
+    return this.slots.map((id, index) => {
+      const change = this.pending.get(index);
+      return change ? change.id : id;
+    });
+  }
+
+  private async audio() {
     if (!this.context) {
       const context = new AudioContext({ latencyHint: 'interactive' });
       const compressor = context.createDynamicsCompressor();
       this.compressorInput = compressor;
       compressor.threshold.value = -15;
       compressor.ratio.value = 5;
-      this.output = context.createGain();
-      this.output.gain.value = this.muted ? 0 : 0.85;
-      compressor.connect(this.output).connect(context.destination);
+      const output = context.createGain();
+      output.gain.value = 0.85;
+      compressor.connect(output).connect(context.destination);
       this.context = context;
     }
     if (this.context.state !== 'running') await this.context.resume();
@@ -57,7 +65,7 @@ export class BeatEngine {
   async play() {
     await this.audio();
     if (this.running) return;
-    this.anchor = this.context!.currentTime + 0.055 - this.next * STEP_SECONDS;
+    this.anchor = this.context!.currentTime + 0.055 - this.playhead * STEP_SECONDS;
     this.timer = window.setInterval(this.schedule, 22);
     this.schedule();
     this.draw();
@@ -68,7 +76,14 @@ export class BeatEngine {
     clearInterval(this.timer);
     this.timer = undefined;
     cancelAnimationFrame(this.animation);
-    this.stop(this.songNodes);
+    for (const node of this.songNodes) node.stop();
+    this.songNodes.clear();
+    for (const frame of this.frames) {
+      for (const [index, change] of frame.applied) {
+        if (!this.pending.has(index)) this.pending.set(index, change);
+      }
+    }
+    this.slots = this.audibleSlots;
     this.next = this.position + 1;
     this.frames = [];
     this.onFrame({ step: this.position, hits: [], slots: this.slots });
@@ -78,42 +93,20 @@ export class BeatEngine {
     if (!this.running) {
       this.pending.delete(slot);
       this.slots = this.slots.map((current, index) => index === slot ? id : current);
+      this.audibleSlots = this.slots;
       this.onFrame({ step: this.position, hits: [], slots: this.slots });
-      return;
+      return this.next;
     }
     updateQueue(this.slots, this.pending, slot, id, this.next);
+    return this.pending.get(slot)?.at ?? this.next;
   }
 
-  mute(muted: boolean) {
-    this.muted = muted;
-    if (this.context && this.output) {
-      this.output.gain.setValueAtTime(muted ? 0 : 0.85, this.context.currentTime);
-    }
+  dispose() {
+    this.pause();
+    if (this.context) void this.context.close();
   }
 
-  async preview(sample: Sample, role?: Role) {
-    const context = await this.audio();
-    this.stopPreview();
-    const start = context.currentTime + 0.025;
-    if (role) {
-      for (const [step, level, pitch = 0] of patterns[role]) {
-        this.hit(sample, start + step * STEP_SECONDS, level, pitch, this.previewNodes);
-      }
-    } else {
-      this.hit(sample, start, 0.85, 0, this.previewNodes);
-    }
-  }
-
-  stopPreview() {
-    this.stop(this.previewNodes);
-  }
-
-  private stop(nodes: Set<AudioBufferSourceNode>) {
-    for (const node of nodes) node.stop();
-    nodes.clear();
-  }
-
-  private hit(sample: Sample, time: number, level: number, pitch: number, nodes: Set<AudioBufferSourceNode>) {
+  private hit(sample: Sample, time: number, level: number, pitch: number) {
     const context = this.context!;
     let buffer = this.buffers.get(sample);
     if (!buffer) {
@@ -128,11 +121,11 @@ export class BeatEngine {
     gain.gain.value = level;
     source.connect(gain).connect(this.compressorInput);
     source.onended = () => {
-      nodes.delete(source);
+      this.songNodes.delete(source);
       source.disconnect();
       gain.disconnect();
     };
-    nodes.add(source);
+    this.songNodes.add(source);
     source.start(time);
   }
 
@@ -142,10 +135,12 @@ export class BeatEngine {
       const step = this.next++;
       const time = this.anchor + step * STEP_SECONDS;
       const beat = step % BAR_STEPS;
+      const applied = new Map<number, Change>();
       if (beat === 0 && this.pending.size) {
         this.slots = this.slots.map((id, index) => {
           const change = this.pending.get(index);
           if (!change || change.at > step) return id;
+          applied.set(index, change);
           this.pending.delete(index);
           return change.id;
         });
@@ -158,11 +153,11 @@ export class BeatEngine {
           const event = patterns[instrument.role].find(([offset]) => offset === beat);
           if (!event) return;
           const [, level, pitch = 0] = event;
-          this.hit(instrument.sample, time, level, pitch, this.songNodes);
+          this.hit(instrument.sample, time, level, pitch);
           hits.push(index);
         });
       }
-      this.frames.push({ step, time, hits, slots: this.slots });
+      this.frames.push({ step, time, hits, slots: this.slots, applied });
     }
   };
 
@@ -173,11 +168,16 @@ export class BeatEngine {
       ? Math.min(context.currentTime, timestamp.contextTime + (performance.now() - timestamp.performanceTime) / 1000)
       : context.currentTime;
     let frame: ScheduledFrame | undefined;
-    while (this.frames.length && this.frames[0].time <= now) frame = this.frames.shift();
-    if (frame) {
+    while (this.frames.length && this.frames[0].time <= now) {
+      frame = this.frames.shift()!;
       this.position = frame.step;
+      this.audibleSlots = frame.slots;
+    }
+    if (frame) {
       this.onFrame(frame);
     }
+    this.playhead = Math.max(this.playhead, (now - this.anchor) / STEP_SECONDS);
+    this.onClock(this.playhead, frame ? frame.hits.map(index => frame.slots[index]!) : []);
     this.animation = requestAnimationFrame(this.draw);
   };
 }

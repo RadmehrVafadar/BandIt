@@ -1,3 +1,5 @@
+import type { ObjectKind } from './sketch.ts';
+
 export const BPM = 100;
 export const BAR_STEPS = 16;
 export const STEP_SECONDS = 60 / BPM / 4;
@@ -9,18 +11,21 @@ export const patterns = {
   snare: [[4, 0.85], [12, 0.95], [15, 0.32]],
   shaker: [[2, 0.75], [4, 0.52], [6, 0.86], [8, 0.53], [10, 0.78], [12, 0.55], [14, 0.94]],
   melody: [[0, 0.75, 0], [3, 0.55, 7], [7, 0.72, 3], [10, 0.65, 12], [14, 0.55, 7]],
+  bell: [[3, 0.65], [11, 0.8]],
+  cup: [[2, 0.82], [7, 0.56], [10, 0.78], [13, 0.65]],
 } satisfies Record<string, Hit[]>;
 
 export type Role = keyof typeof patterns;
 export type Sample = { samples: Float32Array; rate: number };
-export type Instrument = { id: string; name: string; image: string; role: Role; sample: Sample };
+export type Position = { x: number; y: number };
+export type DrawingSize = { width: number; height: number; aspect: number };
+export type Instrument = { id: string; name: string; image?: string; kind?: ObjectKind; role: Role; sample: Sample; position?: Position; drawing?: DrawingSize };
 export type Slots = (string | null)[];
 export type Change = { id: string | null; at: number };
 
 export function barBoundary(nextStep: number) {
   return Math.ceil(nextStep / BAR_STEPS) * BAR_STEPS;
 }
-
 export function updateQueue(
   slots: Slots, pending: Map<number, Change>, slot: number, id: string | null, nextStep: number,
 ) {
@@ -28,24 +33,18 @@ export function updateQueue(
   else pending.set(slot, { id, at: barBoundary(nextStep) });
 }
 
-export function cleanSample(channels: Float32Array[], rate: number): Sample | null {
-  const length = Math.min(channels[0]?.length ?? 0, rate * 2);
-  const mono = new Float32Array(length);
-  let peak = 0;
-  for (let i = 0; i < length; i++) {
-    mono[i] = channels.reduce((sum, channel) => sum + channel[i], 0) / channels.length;
-    peak = Math.max(peak, Math.abs(mono[i]));
+export function bounceHeight(role: Role, step: number, enteredAt: number) {
+  const pattern = patterns[role];
+  const bar = Math.floor(step / BAR_STEPS) * BAR_STEPS;
+  const previous = bar + (pattern.findLast(([beat]) => bar + beat <= step)?.[0] ?? pattern.at(-1)![0] - BAR_STEPS);
+  const next = bar + (pattern.find(([beat]) => bar + beat > step)?.[0] ?? BAR_STEPS + pattern[0][0]);
+  if (next < enteredAt) return 1;
+  if (previous < enteredAt) {
+    const firstBar = Math.floor(enteredAt / BAR_STEPS) * BAR_STEPS;
+    const first = firstBar + (pattern.find(([beat]) => firstBar + beat >= enteredAt)?.[0] ?? BAR_STEPS + pattern[0][0]);
+    const progress = Math.max(0, 1 - (first - step) / 2);
+    return 1 - progress ** 2;
   }
-  if (peak < 0.012) return null;
-  const threshold = Math.max(0.006, peak * 0.06);
-  const pad = Math.round(rate * 0.008);
-  const start = Math.max(0, mono.findIndex(value => Math.abs(value) >= threshold) - pad);
-  const end = Math.min(length, mono.findLastIndex(value => Math.abs(value) >= threshold) + pad + 1);
-  const samples = mono.slice(start, end);
-  const fade = Math.max(1, Math.round(rate * 0.005));
-  for (let i = 0; i < samples.length; i++) {
-    const envelope = Math.min(1, i / fade, (samples.length - 1 - i) / fade);
-    samples[i] *= envelope * 0.88 / peak;
-  }
-  return { samples, rate };
+  const phase = (step - previous) / (next - previous);
+  return 4 * phase * (1 - phase);
 }
