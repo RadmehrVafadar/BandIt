@@ -67,3 +67,6 @@ The browser tests exercise mouse and touch drawing, sound timing, solo playback,
 Set `POCKET_BAND_CHROME` to use an existing Chrome or Chromium executable.
 For a local demo of the built app with live generation, run `npm run build` followed by `npm run preview`.
 Static hosting serves bundled demo clips and built-in voices; live generation requires the sound endpoint on a server with the API key.
+
+On Vercel, set `ELEVENLABS_API_KEY` in the Production environment and redeploy to enable live generation at `/api/sounds`.
+The function caches clips in temporary storage on each warm instance.
