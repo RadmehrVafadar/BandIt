@@ -9,6 +9,7 @@ import type { DrawingSize, Instrument, Part, Position, Slots } from './music.ts'
 import { createObject, objects } from './objects.ts';
 import type { Suggestion } from './objects.ts';
 import { starters } from './starters.ts';
+import { objectSound } from './sounds.ts';
 
 function ObjectArt({ item, size }: { item: Instrument; size: number }) {
   if (item.image || !item.kind) return <img src={item.image} alt="" draggable={false} />;
@@ -32,6 +33,8 @@ export function App() {
   const actors = useRef(new Map<string, HTMLDivElement>());
   const entrances = useRef(new Map<string, number>());
   const starting = useRef(false);
+  const preparing = useRef(false);
+  const [loadingSound, setLoadingSound] = useState('');
 
   useEffect(() => {
     let canceled = false;
@@ -131,7 +134,24 @@ export function App() {
   }
 
   function drawObject(suggestion: Suggestion, position: Position, image: string, drawing: DrawingSize) {
-    return add({ ...createObject(suggestion, position), image, drawing }, true);
+    const { name } = suggestion;
+    if (!engine || preparing.current || freeSlot() < 0) return false;
+    preparing.current = true;
+    setLoadingSound(name);
+    setError('');
+    const item = { ...createObject(suggestion, position), name, image, drawing };
+    // Unlock browser audio inside the user's tap, before waiting for the network.
+    void engine.audio().then(context => objectSound(name, context)).then(sample => {
+      item.sample = sample;
+      return engine.preview(item);
+    }).catch(() => {
+      setError(name + ' is using its built-in sound. The generated clip was unavailable.');
+    }).finally(() => {
+      add(item, true);
+      preparing.current = false;
+      setLoadingSound('');
+    });
+    return true;
   }
 
   function solo(id: string | null) {
@@ -169,7 +189,7 @@ export function App() {
           </div>
         </header>
         <section className="studio" aria-labelledby="board-title">
-          <Drawing disabled={!engine || full} empty={!activeCount} full={full} onChoose={drawObject}>
+          <Drawing disabled={!engine || full || !!loadingSound} empty={!activeCount && !loadingSound} full={full} loadingSound={loadingSound} onChoose={drawObject}>
             {performers.map((item, index) => {
               if (!item) return null;
               const position = item.position ?? { x: (index + 0.5) / slots.length, y: 0.36 };
@@ -222,7 +242,7 @@ export function App() {
         </section>
         {!!saved.length && <details className="saved"><summary>Saved objects</summary>
           <ul>{saved.map(item => <li key={item.id}><button type="button" className="secondary"
-            disabled={full} onClick={() => add(item)}><ObjectArt item={item} size={17} /> Add {item.name}</button></li>)}</ul>
+            disabled={full || !!loadingSound} onClick={() => add(item)}><ObjectArt item={item} size={17} /> Add {item.name}</button></li>)}</ul>
         </details>}
         <p role="status" className="sr-only">{status}</p>
         {error && <p className="error" role="alert">{error}</p>}

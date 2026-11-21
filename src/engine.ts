@@ -12,7 +12,7 @@ export class BeatEngine {
   private context?: AudioContext;
   private compressorInput!: DynamicsCompressorNode;
   private buffers = new WeakMap<Sample, AudioBuffer>();
-  private songNodes = new Map<AudioBufferSourceNode, { id: string; gain: GainNode; level: number }>();
+  private songNodes = new Map<AudioBufferSourceNode, { id: string; gain: GainNode; level: number; preview: boolean }>();
   private ensemble: Map<string, Player>;
   private audibleEnsemble: Map<string, Player>;
   private variants = new WeakMap<Sample, Map<Part, Sample>>();
@@ -84,7 +84,7 @@ export class BeatEngine {
     });
   }
 
-  private async audio() {
+  async audio() {
     if (!this.context) {
       const context = new AudioContext({ latencyHint: 'interactive' });
       const compressor = context.createDynamicsCompressor();
@@ -144,6 +144,7 @@ export class BeatEngine {
   setSolo(id: string | null) {
     this.soloId = id;
     for (const hit of this.songNodes.values()) {
+      if (hit.preview) continue;
       hit.gain.gain.setTargetAtTime(this.audibleLevel(hit.id, hit.level), hit.gain.context.currentTime, 0.005);
     }
   }
@@ -153,12 +154,16 @@ export class BeatEngine {
     if (this.context) void this.context.close();
   }
 
+  preview({ id, sample }: Instrument) {
+    return new Promise<void>(resolve => this.hit(id, sample, this.context!.currentTime, 0.85, 0, resolve));
+  }
+
   private audibleLevel(id: string, level: number) {
     if (this.soloId === null) return level;
     return this.soloId === id ? level : 0;
   }
 
-  private hit(id: string, sample: Sample, time: number, level: number, pitch: number) {
+  private hit(id: string, sample: Sample, time: number, level: number, pitch: number, ended?: () => void) {
     const context = this.context!;
     let buffer = this.buffers.get(sample);
     if (!buffer) {
@@ -170,14 +175,15 @@ export class BeatEngine {
     const gain = context.createGain();
     source.buffer = buffer;
     source.playbackRate.value = 2 ** (pitch / 12);
-    gain.gain.value = this.audibleLevel(id, level);
+    gain.gain.value = ended ? level : this.audibleLevel(id, level);
     source.connect(gain).connect(this.compressorInput);
     source.onended = () => {
       this.songNodes.delete(source);
       source.disconnect();
       gain.disconnect();
+      ended?.();
     };
-    this.songNodes.set(source, { id, gain, level });
+    this.songNodes.set(source, { id, gain, level, preview: !!ended });
     source.start(time);
   }
 

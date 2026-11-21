@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
-const port = Number(process.env.POCKET_BAND_TEST_PORT ?? 4173);
+const port = Number(process.env.POCKET_BAND_TEST_PORT ?? 4183);
 const baseURL = 'http://127.0.0.1:' + port;
 
 export default defineConfig({

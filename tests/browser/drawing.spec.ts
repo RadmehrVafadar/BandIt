@@ -18,6 +18,12 @@ const cup = [
   [[0, 0], [9, 48], [36, 48], [45, 0], [0, 0]], [[42, 9], [60, 9], [63, 21], [42, 33]],
 ];
 
+test.beforeEach(async ({ page }) => {
+  // Keep rehearsals and CI deterministic even when a developer has a paid key.
+  await page.route('**/demo-sounds/*.mp3', route => route.fulfill({ status: 404 }));
+  await page.route('**/api/sounds?*', route => route.fulfill({ status: 503 }));
+});
+
 async function draw(page: Page, strokes: number[][][], xOffset: number, yOffset: number, touch = false) {
   const canvas = page.getByLabel('Draw an object');
   await expect(canvas).toHaveAttribute('data-disabled', 'false');
@@ -297,6 +303,43 @@ test('a crescent moon plays its own sound and keeps it after reload', async ({ p
   await page.getByRole('button', { name: 'Play', exact: true }).click();
   await expect.poll(played).toEqual(moon);
 });
+
+for (const source of ['demo', 'live']) {
+  test(source + ' audio becomes the saved drawing sample', async ({ page }) => {
+    const wav = Buffer.alloc(44 + 1600);
+    wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8);
+    wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
+    wav.writeUInt32LE(8000, 24); wav.writeUInt32LE(16000, 28);
+    wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(1600, 40);
+    for (let i = 0; i < 800; i++) wav.writeInt16LE(Math.round(12000 * Math.sin(i / 7)), 44 + i * 2);
+    let requests = 0;
+    const path = source === 'live' ? '**/api/sounds?name=keys' : '**/demo-sounds/keys.mp3';
+    await page.route(path, route => {
+      requests++;
+      return route.fulfill({ contentType: 'audio/wav', body: wav });
+    });
+    await page.goto('/');
+    await draw(page, key, 80, 90);
+    await page.getByRole('button', { name: 'Use Keys sound' }).click();
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+    expect(requests).toBe(1);
+    const duration = await page.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>(resolve => {
+        const request = indexedDB.open('pocket-band');
+        request.onsuccess = () => resolve(request.result);
+      });
+      const items = db.transaction('instruments').objectStore('instruments').getAll();
+      return new Promise<number>(resolve => {
+        items.onsuccess = () => {
+          db.close();
+          const { samples, rate } = items.result[0].sample;
+          resolve(samples.length / rate);
+        };
+      });
+    });
+    expect(duration).toBeCloseTo(0.1, 2);
+  });
+}
 
 test('keeps basic sounds playable if the classifier cannot load', async ({ page }) => {
   await page.route('**/doodlenet/model.json', route => route.abort());
