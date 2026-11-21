@@ -50,7 +50,8 @@ If a loop file is unavailable, the browser recreates its arrangement from the bu
 After installing Playwright Chromium, run `node scripts/render-loops.ts` to rebuild the four WAV files from the shared score.
 
 Hear the [horse call](public/demo-sounds/horse.wav), the [horse with a drum](docs/samples/horse-and-drum.wav), or the [mix as drum, keys, and cup join](docs/samples/building-the-band.wav).
-The [listening comparison](docs/samples/original-and-loops.wav) captures the previous arrangement followed by the four new loops.
+The [earlier listening comparison](docs/samples/original-and-loops.wav) captures the move from the original arrangement to the four loop parts.
+Hear the same four drawings twice in the [bass and strings comparison](docs/samples/bass-and-strings.wav), with the new mix starting at 0:10.5.
 
 Recognition runs in a browser worker using [DoodleNet by Yining Shi](https://github.com/yining1023/doodleNet), trained on the [Google Quick, Draw! dataset](https://github.com/googlecreativelab/quickdraw-dataset) (CC BY 4.0).
 The site serves the [model weights and matching labels](https://github.com/ml5js/ml5-data-and-models/tree/main/models/doodlenet) with the app and keeps drawings on the device.
@@ -59,6 +60,9 @@ The strip shows up to eight illustrated guesses in ranked order and scrolls hori
 Picking an illustration adds it to the stage where you drew and gives it the selected object's sound.
 Try one bell to hear the melody, then draw more bells to add the pulse, backbeat, and offbeats.
 The bass and melody move through C minor, A-flat major, E-flat major, and G minor before returning to C.
+With two or more drawings, a low plucked bass comes in on the offbeat in the second bar.
+With three or four, soft strings enter halfway through the phrase and release before it repeats.
+Soloing a drawing mutes both backing parts.
 Lineup changes land on the next downbeat.
 Horse plays soft hoofbeats and a plucked string between full-length calls, and calls less often when other objects join.
 Multiple horses take turns whinnying.
