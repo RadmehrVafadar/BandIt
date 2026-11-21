@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { AudioLines, Headphones, Pause, Play, X } from 'lucide-react';
+import { Headphones, Pause, Play, X } from 'lucide-react';
 import { Drawing } from './Drawing.tsx';
 import { BeatEngine } from './engine.ts';
 import { emptyStage, openLibrary, readLibrary, storeStage } from './library.ts';
@@ -179,7 +179,10 @@ export function App() {
     <>
       <main className="workspace">
         <header className="intro">
-          <h1 className="brand"><span className="brand-icon"><AudioLines size={21} /></span> Pocket Band</h1>
+          <h1 className="brand">
+            <span className="brand-note" aria-hidden="true" />
+            BandIt
+          </h1>
           <div className="transport">
             <span className="tempo"><strong>{BPM}</strong> BPM</span>
             <button className="primary play-button" disabled={!activeCount && !playing} onClick={togglePlayback}>

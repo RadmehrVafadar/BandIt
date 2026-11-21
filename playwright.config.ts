@@ -10,7 +10,7 @@ export default defineConfig({
   use: {
     baseURL,
     launchOptions: {
-      executablePath: process.env.POCKET_BAND_CHROME,
+      executablePath: process.env.BANDIT_CHROME ?? process.env.POCKET_BAND_CHROME,
     },
   },
   webServer: {

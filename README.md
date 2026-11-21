@@ -1,6 +1,7 @@
-# Pocket Band
+# BandIt
 
-Pocket Band turns sketches of everyday objects into a beat that plays every time they hit the floor.
+BandIt turns sketches of everyday objects into a beat that plays every time they hit the floor.
+Its rainbow note logo rotates in the header and holds still when reduced motion is enabled.
 
 ## Features
 
@@ -44,12 +45,12 @@ The strip shows up to eight illustrated guesses in ranked order and scrolls hori
 Picking an illustration assigns its sound to your freehand drawing.
 Try drawing four bells to hear a damped low pulse, a clipped backbeat, muted offbeats, and a ringing C-minor hook.
 Every lineup uses the same two-bar score, with parts assigned to suit the sounds and changes landing on the next bar.
-Pocket Band saves the original sketches, positions, and sounds in IndexedDB for the current browser profile and origin.
+BandIt saves the original sketches, positions, and sounds in IndexedDB for the current browser profile and origin.
 Older recorded instruments already onstage still use their images and recordings.
 You can bring other previously saved instruments back from **Saved objects**.
 
 Most suggestion drawings come from the [AutoDraw artists](https://www.autodraw.com/artists), with the source stencil credited inside each SVG.
-Pocket Band supplies the church, face, knife, lighter, rifle, and zigzag drawings.
+BandIt supplies the church, face, knife, lighter, rifle, and zigzag drawings.
 The layered beat is inspired by [Incredibox](https://www.incredibox.com/demo/).
 
 ## Verification
@@ -64,6 +65,6 @@ npm run build
 ```
 
 The browser tests exercise mouse and touch drawing, sound timing, solo playback, pause and resume, persistence, and reduced motion.
-Set `POCKET_BAND_CHROME` to use an existing Chrome or Chromium executable.
+Set `BANDIT_CHROME` to use an existing Chrome or Chromium executable.
 For a local demo of the built app with live generation, run `npm run build` followed by `npm run preview`.
 Static hosting serves bundled demo clips and built-in voices; live generation requires the sound endpoint on a server with the API key.

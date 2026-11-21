@@ -18,6 +18,19 @@ const cup = [
   [[0, 0], [9, 48], [36, 48], [45, 0], [0, 0]], [[42, 9], [60, 9], [63, 21], [42, 33]],
 ];
 
+test('BandIt shows a rotating note and respects reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/');
+  await expect(page).toHaveTitle('BandIt');
+  const note = page.getByRole('heading', { name: 'BandIt', exact: true }).locator('.brand-note');
+  await expect(note).toHaveCSS('animation-name', 'note-turn');
+  await expect(note).toHaveCSS('background-image', /bandit-turntable\.png/);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(note).toHaveCSS('animation-name', 'none');
+  await expect(note).toHaveCSS('background-image', /bandit-note\.png/);
+  await expect(note).toBeVisible();
+});
+
 test.beforeEach(async ({ page }) => {
   // Keep rehearsals and CI deterministic even when a developer has a paid key.
   await page.route('**/demo-sounds/*.mp3', route => route.fulfill({ status: 404 }));

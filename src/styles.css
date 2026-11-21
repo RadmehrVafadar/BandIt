@@ -23,7 +23,22 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .intro, .board-tools, .mix-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .intro { min-height: 55px; margin-bottom: 10px; }
 .brand { display: flex; gap: 9px; align-items: center; font: 680 1.45rem var(--heading); letter-spacing: -.035em; }
-.brand-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: #e5dbff; color: var(--accent); }
+.brand-note {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  background: url('/bandit-note.png') left center / auto 100% no-repeat;
+}
+@keyframes note-turn {
+  to { background-position-x: 100%; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .brand-note {
+    background-image: url('/bandit-turntable.png');
+    /* The last frame sits at 100%, one step before the turn loops. */
+    animation: note-turn 4s steps(96, jump-none) infinite;
+  }
+}
 .transport { display: flex; align-items: center; gap: 12px; }
 .tempo { display: flex; align-items: baseline; gap: 4px; color: var(--muted); font-size: .73rem; font-weight: 700; }
 .tempo strong { color: var(--ink); font: 730 1.15rem var(--heading); font-variant-numeric: tabular-nums; }
