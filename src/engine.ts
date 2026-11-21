@@ -1,27 +1,24 @@
 import { renderAccompaniment } from './accompaniment.ts';
-import { hoofbeats, horseCallSteps, horsePluck } from './horse.ts';
-import { chords, hitDelay, loopScore, loopVoice, nativePart, signatureSteps } from './loop-score.ts';
+import { AudioMixer } from './audio-mixer.ts';
+import { assignParts, buildEnsemble } from './ensemble.ts';
+import type { Accent, Ensemble } from './ensemble.ts';
+import { hoofbeats, horsePluck } from './horse.ts';
+import { chords, hitDelay, loopScore } from './loop-score.ts';
 import type { LoopBank } from './loops.ts';
-import { BAR_STEPS, STEP_SECONDS, PHRASE, arrange, bounceHeight, updateQueue } from './music.ts';
-import type { Change, Hit, Instrument, Part, Sample, Slots } from './music.ts';
+import { BAR_STEPS, STEP_SECONDS, PHRASE, bounceHeight, updateQueue } from './music.ts';
+import type { Change, Instrument, Part, Slots } from './music.ts';
 
 type Frame = { step: number; hits: number[]; slots: Slots };
-type Accent = { sample: Sample; steps: Set<number> };
-type Player = { part: Part; events: readonly Hit[] } & ({ stem: Sample; accent?: Accent } | { beatbox: Sample });
-type ScheduledFrame = Frame & { ensemble: Map<string, Player>; time: number; applied: Map<number, Change> };
+type ScheduledFrame = Frame & { ensemble: Ensemble; time: number; applied: Map<number, Change> };
 const LOOKAHEAD = 0.105;
 
 export class BeatEngine {
   readonly pending = new Map<number, Change>();
-  private context?: AudioContext;
-  private compressorInput!: DynamicsCompressorNode;
-  private buffers = new WeakMap<Sample, AudioBuffer>();
-  private songNodes = new Map<AudioBufferSourceNode, { id: string | null; gain: GainNode; level: number }>();
+  private readonly mixer = new AudioMixer(() => this.ensemble.players.size);
   private readonly accompaniment = renderAccompaniment();
-  private ensemble: Map<string, Player>;
-  private audibleEnsemble: Map<string, Player>;
+  private ensemble: Ensemble;
+  private audibleEnsemble: Ensemble;
   private signatureEnds = new Map<string, number>();
-  private soloId: string | null = null;
   private slots: Slots;
   private frames: ScheduledFrame[] = [];
   private timer?: number;
@@ -47,42 +44,21 @@ export class BeatEngine {
     this.audibleEnsemble = this.ensemble;
   }
 
-  private assign(slots: Slots, previous = new Map(Array.from(this.ensemble ?? [], ([id, player]) => [id, player.part]))) {
-    const players = slots.flatMap(id => {
-      const item = id && this.instruments.get(id);
-      return item ? [{ id: item.id, role: item.role, nativePart: nativePart(item) }] : [];
-    });
-    return arrange(players, previous);
-  }
-
   get plannedParts() {
-    return this.assign(this.arrangement);
+    return assignParts(this.arrangement, this.instruments, this.ensemble.parts);
   }
 
-  private buildEnsemble(previous?: Map<string, Part>) {
-    const parts = this.assign(this.slots, previous);
-    const horses = [...parts.keys()].filter(id => this.instruments.get(id)!.sample.articulation === 'whinny');
-    return new Map<string, Player>(Array.from(parts, ([id, part]): [string, Player] => {
-      const item = this.instruments.get(id)!;
-      const { sample } = item;
-      const events = loopScore[loopVoice[part]];
-      if (sample.articulation === 'beatbox') return [id, { part, events, beatbox: sample }];
-      const player: Player = { part, events, stem: this.loops.get(part)! };
-      if (nativePart(item) === part && !sample.preserveRecording) return [id, player];
-      const horseIndex = horses.indexOf(id);
-      const steps = horseIndex < 0 ? signatureSteps(events, sample.samples.length / sample.rate)
-        : horseCallSteps(events, horseIndex, horses.length, parts.size);
-      return [id, { ...player, accent: { sample, steps } }];
-    }));
+  private buildEnsemble(previous = this.ensemble.parts) {
+    return buildEnsemble(this.slots, this.instruments, this.loops, previous);
   }
 
   part(id: string) {
-    return this.audibleEnsemble.get(id)?.part;
+    return this.audibleEnsemble.parts.get(id);
   }
 
   height(id: string, step: number, enteredAt: number) {
-    const player = this.audibleEnsemble.get(id) ?? this.ensemble.get(id);
-    return player ? bounceHeight(player.events, step, enteredAt) : 1;
+    const player = this.audibleEnsemble.players.get(id) ?? this.ensemble.players.get(id);
+    return player ? bounceHeight(loopScore[player.voice], step, enteredAt) : 1;
   }
 
   get running() {
@@ -101,26 +77,16 @@ export class BeatEngine {
   }
 
   async audio() {
-    if (!this.context) {
-      const context = new AudioContext({ latencyHint: 'interactive' });
-      const compressor = context.createDynamicsCompressor();
-      this.compressorInput = compressor;
-      compressor.threshold.value = -15;
-      compressor.ratio.value = 5;
-      const output = context.createGain();
-      output.gain.value = 0.85;
-      compressor.connect(output).connect(context.destination);
-      this.context = context;
-    }
-    if (this.context.state !== 'running') await this.context.resume();
-    return this.context;
+    const context = this.mixer.context;
+    if (context.state !== 'running') await context.resume();
+    return context;
   }
 
   async play() {
-    await this.audio();
+    const context = await this.audio();
     if (this.running) return;
     this.resumeStep = this.next;
-    this.anchor = this.context!.currentTime + 0.055 - this.playhead * STEP_SECONDS;
+    this.anchor = context.currentTime + 0.055 - this.playhead * STEP_SECONDS;
     this.timer = window.setInterval(this.schedule, 22);
     this.schedule();
     this.draw();
@@ -131,8 +97,7 @@ export class BeatEngine {
     clearInterval(this.timer);
     this.timer = undefined;
     cancelAnimationFrame(this.animation);
-    for (const node of this.songNodes.keys()) node.stop();
-    this.songNodes.clear();
+    this.mixer.stopAll();
     this.signatureEnds.clear();
     for (const frame of this.frames) {
       for (const [index, change] of frame.applied) {
@@ -160,99 +125,73 @@ export class BeatEngine {
   }
 
   setSolo(id: string | null) {
-    this.soloId = id;
-    for (const hit of this.songNodes.values()) {
-      hit.gain.gain.setTargetAtTime(this.audibleLevel(hit.id, hit.level), hit.gain.context.currentTime, 0.005);
-    }
+    this.mixer.setSolo(id);
   }
 
   dispose() {
     this.pause();
-    if (this.context) void this.context.close();
-  }
-
-  private audibleLevel(id: string | null, level: number) {
-    if (this.soloId !== null) return this.soloId === id ? level : 0;
-    // Leave a little more headroom for overlapping tails with each new player.
-    return level / (1 + .08 * Math.max(0, this.ensemble.size - 1));
-  }
-
-  private hit(id: string | null, sample: Sample, time: number, level: number, pitch = 0, offset = 0, duration?: number) {
-    const context = this.context!;
-    let buffer = this.buffers.get(sample);
-    if (!buffer) {
-      buffer = context.createBuffer(1, sample.samples.length, sample.rate);
-      buffer.getChannelData(0).set(sample.samples);
-      this.buffers.set(sample, buffer);
-    }
-    const source = context.createBufferSource();
-    const gain = context.createGain();
-    source.buffer = buffer;
-    source.playbackRate.value = 2 ** (pitch / 12);
-    gain.gain.value = this.audibleLevel(id, level);
-    source.connect(gain).connect(this.compressorInput);
-    source.onended = () => {
-      this.songNodes.delete(source);
-      source.disconnect();
-      gain.disconnect();
-    };
-    this.songNodes.set(source, { id, gain, level });
-    source.start(time, offset, duration);
+    this.mixer.close();
   }
 
   private playBar(step: number, time: number) {
     const phase = step % PHRASE;
     const beat = step % BAR_STEPS;
     const duration = (BAR_STEPS - beat) * STEP_SECONDS;
-    for (const [id, player] of this.ensemble) {
-      if ('stem' in player) this.hit(id, player.stem, time, player.accent ? .62 : 1, 0, phase * STEP_SECONDS, duration);
+    const { players } = this.ensemble;
+    for (const [id, player] of players) {
+      if ('stem' in player) this.mixer.play(id, player.stem, time, player.accent ? .62 : 1, 0, phase * STEP_SECONDS, duration);
     }
     const { bass, strings } = this.accompaniment[Math.floor(phase / BAR_STEPS)];
-    if (bass && this.ensemble.size >= 2) this.hit(null, bass, time, 1, 0, beat * STEP_SECONDS, duration);
-    if (strings && this.ensemble.size >= 3) this.hit(null, strings, time, 1, 0, beat * STEP_SECONDS, duration);
+    if (bass && players.size >= 2) this.mixer.play(null, bass, time, 1, 0, beat * STEP_SECONDS, duration);
+    if (strings && players.size >= 3) this.mixer.play(null, strings, time, 1, 0, beat * STEP_SECONDS, duration);
+  }
+
+  private applyPendingChanges(step: number, time: number) {
+    const applied = new Map<number, Change>();
+    if (step % BAR_STEPS !== 0 || !this.pending.size) return applied;
+    this.slots = this.slots.map((id, index) => {
+      const change = this.pending.get(index);
+      if (!change || change.at > step) return id;
+      applied.set(index, change);
+      this.pending.delete(index);
+      if (id && id !== change.id) {
+        this.signatureEnds.delete(id);
+        this.mixer.fadeOut(id, time);
+      }
+      return change.id;
+    });
+    if (applied.size) this.ensemble = this.buildEnsemble();
+    return applied;
+  }
+
+  private playStep(step: number, time: number) {
+    if (step % BAR_STEPS === 0 || this.resumeStep === step) this.playBar(step, time);
+    const offset = step % PHRASE;
+    const hits: number[] = [];
+    for (const [index, id] of this.slots.entries()) {
+      if (!id) continue;
+      const player = this.ensemble.players.get(id);
+      if (!player) continue;
+      const event = loopScore[player.voice].find(([at]) => at === offset);
+      if (!event) continue;
+      hits.push(index);
+      const [, level, pitch] = event;
+      const hitTime = time + hitDelay(player.voice, offset);
+      if ('beatbox' in player) this.mixer.play(id, player.beatbox, hitTime, level, pitch);
+      else if (player.accent) this.playAccent(id, player.accent, offset, hitTime, level);
+    }
+    return hits;
   }
 
   private schedule = () => {
-    const now = this.context!.currentTime;
+    const now = this.mixer.context.currentTime;
     while (this.anchor + this.next * STEP_SECONDS < now + LOOKAHEAD) {
       const step = this.next++;
       const time = this.anchor + step * STEP_SECONDS;
-      const beat = step % BAR_STEPS;
-      const applied = new Map<number, Change>();
-      if (beat === 0 && this.pending.size) {
-        this.slots = this.slots.map((id, index) => {
-          const change = this.pending.get(index);
-          if (!change || change.at > step) return id;
-          applied.set(index, change);
-          this.pending.delete(index);
-          if (id && id !== change.id) {
-            this.signatureEnds.delete(id);
-            for (const [source, hit] of this.songNodes) {
-              if (hit.id !== id) continue;
-              hit.gain.gain.setTargetAtTime(0, time, .003);
-              source.stop(time + .015);
-            }
-          }
-          return change.id;
-        });
-      }
-      if (applied.size) this.ensemble = this.buildEnsemble();
-      const hits: number[] = [];
-      if (time >= now - 0.025) {
-        if (beat === 0 || this.resumeStep === step) this.playBar(step, time);
-        this.slots.forEach((id, index) => {
-          if (!id) return;
-          const player = this.ensemble.get(id);
-          if (!player) return;
-          const offset = step % PHRASE;
-          const event = player.events.find(([at]) => at === offset);
-          if (!event) return;
-          hits.push(index);
-          const hitTime = time + hitDelay(loopVoice[player.part], offset);
-          if ('beatbox' in player) this.hit(id, player.beatbox, hitTime, event[1], event[2]);
-          else if (player.accent) this.playAccent(id, player.accent, offset, hitTime, event[1]);
-        });
-      } else this.resumeStep = step + 1;
+      const applied = this.applyPendingChanges(step, time);
+      let hits: number[] = [];
+      if (time >= now - 0.025) hits = this.playStep(step, time);
+      else this.resumeStep = step + 1;
       this.frames.push({ step, time, hits, slots: this.slots, ensemble: this.ensemble, applied });
     }
   };
@@ -261,17 +200,17 @@ export class BeatEngine {
     const { sample, steps } = accent;
     const featured = steps.has(step);
     if (featured && time >= (this.signatureEnds.get(id) ?? 0)) {
-      this.hit(id, sample, time, .80 * level);
+      this.mixer.play(id, sample, time, .80 * level);
       this.signatureEnds.set(id, time + sample.samples.length / sample.rate);
     }
     if (sample.articulation === 'whinny') {
-      if (!featured) this.hit(id, hoofbeats(), time, .46 * level);
-      this.hit(id, horsePluck(), time, (featured ? .25 : .38) * level, chords[Math.floor(step / BAR_STEPS)].root);
+      if (!featured) this.mixer.play(id, hoofbeats(), time, .46 * level);
+      this.mixer.play(id, horsePluck(), time, (featured ? .25 : .38) * level, chords[Math.floor(step / BAR_STEPS)].root);
     }
   }
 
   private draw = () => {
-    const context = this.context!;
+    const context = this.mixer.context;
     const timestamp = context.getOutputTimestamp?.();
     const now = timestamp?.performanceTime && timestamp.contextTime !== undefined
       ? Math.min(context.currentTime, timestamp.contextTime + (performance.now() - timestamp.performanceTime) / 1000)

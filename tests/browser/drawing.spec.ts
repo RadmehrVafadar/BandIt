@@ -281,8 +281,9 @@ test('headphones isolate one object and restore the band and its accompaniment',
   type AudioHit = { voice: 'keys' | 'drum' | 'backing'; audible: boolean };
   await page.addInitScript(() => {
     const audioHits: AudioHit[] = [];
+    const soloTargets: Partial<Record<AudioHit['voice'], boolean>> = {};
     const voices = new Set<AudioBuffer>();
-    Object.assign(window, { audioHits });
+    Object.assign(window, { audioHits, soloTargets });
     const connect = AudioNode.prototype.connect;
     AudioNode.prototype.connect = function (this: AudioNode, destination: AudioNode | AudioParam, ...ports: number[]) {
       if (this instanceof AudioBufferSourceNode && this.buffer && destination instanceof GainNode) {
@@ -292,6 +293,11 @@ test('headphones isolate one object and restore the band and its accompaniment',
           voice = [...voices][0] === this.buffer ? 'keys' : 'drum';
         }
         audioHits.push({ voice, audible: destination.gain.value > 0 });
+        const setTarget = destination.gain.setTargetAtTime.bind(destination.gain);
+        destination.gain.setTargetAtTime = (level, time, decay) => {
+          soloTargets[voice] = level > 0;
+          return setTarget(level, time, decay);
+        };
       }
       return Reflect.apply(connect, this, [destination, ...ports]);
     } as typeof connect;
@@ -305,6 +311,10 @@ test('headphones isolate one object and restore the band and its accompaniment',
     }
     const start = (await readHits()).length;
     const audible = { keys: keysAudible, drum: drumAudible, backing: keysAudible && drumAudible };
+    // Solo must also update stems that were already playing when the button was pressed.
+    await expect.poll(() => page.evaluate(() => (window as unknown as {
+      soloTargets: Partial<Record<AudioHit['voice'], boolean>>;
+    }).soloTargets)).toMatchObject({ keys: keysAudible, drum: drumAudible });
     await expect.poll(async () => {
       const hits = (await readHits()).slice(start);
       return new Set(hits.map(hit => hit.voice)).size === 3 && hits.every(hit => hit.audible === audible[hit.voice]);
