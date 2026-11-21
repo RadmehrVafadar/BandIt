@@ -215,3 +215,21 @@ test.describe('touch drawing', () => {
     await expect(page.locator('.floor')).toBeInViewport();
   });
 });
+
+test('recognizes a star locally and restores its name and drawing', async ({ page }) => {
+  await page.goto('/');
+  await draw(page, [[[30, 0], [38, 22], [60, 22], [43, 36], [50, 60], [30, 46],
+    [10, 60], [17, 36], [0, 22], [22, 22], [30, 0]]], 100, 80);
+  await page.getByRole('button', { name: 'Use Star sound', exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Remove Star' })).toBeVisible();
+});
+
+test('keeps basic sounds playable if the classifier cannot load', async ({ page }) => {
+  await page.route('**/doodlenet/model.json', route => route.abort());
+  await page.goto('/');
+  await draw(page, key, 80, 90);
+  await expect(page.getByText('Using basic sounds')).toBeVisible();
+  await page.getByRole('button', { name: 'Use Keys sound' }).click();
+  await expect(page.getByRole('button', { name: 'Remove Keys' })).toBeEnabled();
+});

@@ -5,7 +5,7 @@ Pocket Band turns sketches of everyday objects into a beat that plays every time
 ## Features
 
 - Draw with a mouse, finger, or pen and choose a sound suggestion above the canvas.
-- Sketch keys, a drum, a bell, a cup, a pencil, or a whistle.
+- Sketch objects from all 345 Quick, Draw! categories, or draw a bell or whistle.
 - Layer up to four objects on a shared 100 BPM grid, each with its own rhythm and sound.
 - Use an object's headphone button to hear it on its own, then press it again to restore the mix.
 - Reopen your saved mix paused in the same browser.
@@ -27,7 +27,10 @@ Open the localhost URL Vite prints.
 4. Draw a drum and choose **Drum** to add its thump on the next bar.
 5. Pause the mix or remove a layer with the **Remove** button in **Your mix**.
 
-Recognition runs locally with templates for six supported shapes.
+Recognition runs in a browser worker using [DoodleNet by Yining Shi](https://github.com/yining1023/doodleNet), trained on the [Google Quick, Draw! dataset](https://github.com/googlecreativelab/quickdraw-dataset) (CC BY 4.0).
+The site serves the [model weights and matching labels](https://github.com/ml5js/ml5-data-and-models/tree/main/models/doodlenet) with the app and keeps drawings on the device.
+Close matches to the original six instrument templates remain available, and these templates provide suggestions if the model cannot load.
+Each recognized label uses one of six synthesized sounds.
 The app shows three suggestions ranked by similarity.
 Pocket Band saves the original sketches, positions, and sounds in IndexedDB for the current browser profile and origin.
 Older recorded instruments already onstage still use their images and recordings.

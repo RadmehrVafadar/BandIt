@@ -7,7 +7,7 @@ import { emptyStage, openLibrary, readLibrary, storeStage } from './library.ts';
 import { BAR_STEPS, BPM, bounceHeight } from './music.ts';
 import type { DrawingSize, Instrument, Position, Slots } from './music.ts';
 import { createObject, objects } from './objects.ts';
-import type { ObjectKind } from './sketch.ts';
+import type { Suggestion } from './objects.ts';
 import { starters } from './starters.ts';
 
 function ObjectArt({ item, size }: { item: Instrument; size: number }) {
@@ -129,8 +129,8 @@ export function App() {
     return true;
   }
 
-  function drawObject(kind: ObjectKind, position: Position, image: string, drawing: DrawingSize) {
-    return add({ ...createObject(kind, position), image, drawing }, true);
+  function drawObject({ kind, name }: Suggestion, position: Position, image: string, drawing: DrawingSize) {
+    return add({ ...createObject(kind, position), name, image, drawing }, true);
   }
 
   function solo(id: string | null) {
