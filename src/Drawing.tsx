@@ -17,6 +17,10 @@ type Props = {
   onChoose: (suggestion: Suggestion, position: Position, image: string, size: DrawingSize) => boolean;
 };
 
+function illustrationUrl(suggestion: Suggestion) {
+  return import.meta.env.BASE_URL + drawingFile(suggestion.name);
+}
+
 export function Drawing({ children, disabled, empty, full, loadingSound, onChoose }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const strokes = useRef<Stroke[]>([]);
@@ -166,20 +170,12 @@ export function Drawing({ children, disabled, empty, full, loadingSound, onChoos
 
   function choose(suggestion: Suggestion) {
     if (disabled || drawing || !strokes.current.length) return;
-    const element = canvas.current!;
+    const { width, height } = canvas.current!.getBoundingClientRect();
     const box = bounds(strokes.current);
-    const padding = Math.ceil(3 * window.devicePixelRatio);
-    const left = Math.max(0, Math.floor(box.left * element.width) - padding);
-    const top = Math.max(0, Math.floor(box.top * element.height) - padding);
-    const right = Math.min(element.width, Math.ceil(box.right * element.width) + padding);
-    const bottom = Math.min(element.height, Math.ceil(box.bottom * element.height) + padding);
-    const crop = document.createElement('canvas');
-    crop.width = right - left;
-    crop.height = bottom - top;
-    crop.getContext('2d')!.drawImage(element, left, top, crop.width, crop.height, 0, 0, crop.width, crop.height);
     const position = { x: (box.left + box.right) / 2, y: (box.top + box.bottom) / 2 };
-    const size = { width: crop.width / element.width, height: crop.height / element.height, aspect: crop.width / crop.height };
-    if (onChoose(suggestion, position, crop.toDataURL(), size)) clear();
+    const side = Math.max(32, (box.right - box.left) * width, (box.bottom - box.top) * height);
+    const size = { width: side / width, height: side / height, aspect: 1 };
+    if (onChoose(suggestion, position, illustrationUrl(suggestion), size)) clear();
   }
 
   return (
@@ -199,7 +195,7 @@ export function Drawing({ children, disabled, empty, full, loadingSound, onChoos
                     const target = document.elementFromPoint(event.clientX, event.clientY);
                     if (event.currentTarget.contains(target)) choose(suggestion);
                   }}>
-                  <img src={import.meta.env.BASE_URL + drawingFile(suggestion.name)} alt="" draggable={false} />
+                  <img src={illustrationUrl(suggestion)} alt="" draggable={false} />
                   <span>{suggestion.name}</span>
                 </button>
               ))}

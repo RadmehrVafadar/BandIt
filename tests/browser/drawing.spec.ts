@@ -103,7 +103,7 @@ test('draw keys, hear a floor hit, and layer a drum at the next bar', async ({ p
   await suggestions.getByRole('button', { name: 'Use Keys sound' }).click();
   await expect(pause).toBeVisible();
   await expect(keys).toHaveAttribute('data-active', 'true');
-  await expect(keys.locator('img')).toHaveAttribute('src', /^data:image\/png;base64,/);
+  await expect(keys.locator('img')).toHaveAttribute('src', /\/drawings\/keys\.svg$/);
   await expect(suggestions).toHaveCount(0);
   await expect.poll(async () => page.evaluate(() => {
     const { hits, poses } = window as unknown as {
@@ -279,16 +279,16 @@ test('recognizes a star locally and restores its name and drawing', async ({ pag
   const suggestions = page.getByRole('group', { name: 'Sound suggestions' });
   const star = suggestions.getByRole('button', { name: 'Use Star sound', exact: true });
   await expect(star.locator('img')).toHaveAttribute('src', /\/drawings\/star\.svg$/);
+  const illustration = await star.locator('img').getAttribute('src');
   await expect(star.locator('img')).toHaveJSProperty('complete', true);
   expect(await star.locator('img').evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await star.focus();
   await page.keyboard.press('Enter');
   const onstage = page.locator('[data-performer="Star"] img');
-  await expect(onstage).toHaveAttribute('src', /^data:image\/png;base64,/);
-  const sketch = await onstage.getAttribute('src');
+  await expect(onstage).toHaveAttribute('src', illustration!);
   await page.reload();
   await expect(page.getByRole('button', { name: 'Remove Star' })).toBeVisible();
-  await expect(onstage).toHaveAttribute('src', sketch!);
+  await expect(onstage).toHaveAttribute('src', illustration!);
 });
 
 test('a crescent moon plays its own sound and keeps it after reload', async ({ page }) => {
