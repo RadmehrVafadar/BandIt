@@ -2,6 +2,7 @@ import '@tensorflow/tfjs-backend-cpu';
 import { setBackend, tensor4d, tidy } from '@tensorflow/tfjs-core';
 import type { Tensor } from '@tensorflow/tfjs-core';
 import { loadLayersModel } from '@tensorflow/tfjs-layers';
+import { suggestionLimit } from './doodle.ts';
 
 async function load(base: string) {
   await setBackend('cpu');
@@ -27,7 +28,7 @@ self.onmessage = async ({ data }: MessageEvent<{ id: number; pixels: Float32Arra
       return Array.from(result.dataSync());
     });
     const ranked = labels.map((label, i) => ({ label, score: scores[i] })).sort((a, b) => b.score - a.score);
-    self.postMessage({ id, labels: ranked.slice(0, 3).map(item => item.label) });
+    self.postMessage({ id, labels: ranked.slice(0, suggestionLimit).map(item => item.label) });
   } catch (error) {
     console.warn("Sketch recognition unavailable", error);
     ready = undefined;

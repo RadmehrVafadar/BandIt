@@ -4,7 +4,7 @@ Pocket Band turns sketches of everyday objects into a beat that plays every time
 
 ## Features
 
-- Draw with a mouse, finger, or pen and choose a sound suggestion above the canvas.
+- Draw with a mouse, finger, or pen and pick a matching illustration from the **Do you mean:** strip.
 - Sketch objects from all 345 Quick, Draw! categories, or draw a bell or whistle.
 - Layer up to four objects on a shared 100 BPM grid, each with its own rhythm and sound.
 - Use an object's headphone button to hear it on its own, then press it again to restore the mix.
@@ -22,7 +22,7 @@ Open the localhost URL Vite prints.
 ## Demo
 
 1. Draw a key with a round head and a toothed shaft.
-2. Choose **Keys** from the suggestions above the canvas to give your sketch its sound.
+2. Choose the **Keys** illustration to give your original sketch a jingle.
 3. Watch it drop to the floor and listen for the jingle when it lands.
 4. Draw a drum and choose **Drum** to add its thump on the next bar.
 5. Pause the mix or remove a layer with the **Remove** button in **Your mix**.
@@ -30,15 +30,19 @@ Open the localhost URL Vite prints.
 Recognition runs in a browser worker using [DoodleNet by Yining Shi](https://github.com/yining1023/doodleNet), trained on the [Google Quick, Draw! dataset](https://github.com/googlecreativelab/quickdraw-dataset) (CC BY 4.0).
 The site serves the [model weights and matching labels](https://github.com/ml5js/ml5-data-and-models/tree/main/models/doodlenet) with the app and keeps drawings on the device.
 Close matches to the original six instrument templates remain available, and these templates provide suggestions if the model cannot load.
-Each recognized label uses one of six synthesized sounds.
-The whistle, bell, and cup outline a C major chord and take turns attacking within the bar.
-Objects with the same rhythm share its playback level, and soloing one restores its individual level.
-The app shows three suggestions ranked by similarity.
+Each of the 345 recognized categories has its own sound, from a moon's rising chime to a bee's buzz or a truck's rev.
+Pocket Band uses [@audio/synth-sfx](https://audio.js.org/modules/synth-sfx/) to generate short effects on the device, with no audio downloads or API key.
+New classifier labels automatically get a repeatable plucked sound until they are assigned a sound family in src/drawing-sounds.ts.
+The strip shows up to eight illustrated guesses in ranked order and scrolls horizontally on smaller screens.
+Picking an illustration assigns its sound to your freehand drawing.
+Layers that share a sound role are balanced together, and soloing restores the selected layer's full level.
 Pocket Band saves the original sketches, positions, and sounds in IndexedDB for the current browser profile and origin.
 Older recorded instruments already onstage still use their images and recordings.
 You can bring other previously saved instruments back from **Saved objects**.
 
-The sketch suggestions are inspired by [AutoDraw](https://www.autodraw.com/), and the layered beat by [Incredibox](https://www.incredibox.com/demo/).
+Most suggestion drawings come from the [AutoDraw artists](https://www.autodraw.com/artists), with the source stencil credited inside each SVG.
+Pocket Band supplies the church, face, knife, lighter, rifle, and zigzag drawings.
+The layered beat is inspired by [Incredibox](https://www.incredibox.com/demo/).
 
 ## Verification
 
