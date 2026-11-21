@@ -10,7 +10,7 @@ The rainbow note logo holds still when reduced motion is enabled.
 - Sketch objects from all 345 Quick, Draw! categories, or draw a bell or whistle.
 - Hear each object join the beat with its own sound, from a keyring jingle to a horse's whinny.
 - Build a ten-second groove from up to four drawings on a shared 96 BPM clock.
-- Click an occupied slot to hear its object on its own, then click it again to restore the mix.
+- Click an object's headphones to toggle solo, or hold to hear it until you release.
 - Reopen your mix paused in the same browser or click an empty slot to bring back a saved object.
 
 ## Quick start
@@ -40,7 +40,7 @@ The band keeps playing while a new sound loads, and uses a built-in voice if sou
 4. Draw a drum and choose **Drum** to add its thump on the next bar.
 5. Add **Cup** for a hollow backbeat and **Bell** for a pitched hook.
 6. Use the **×** on Bell's slot to remove it, then draw a horse and listen for its neigh over the melody.
-7. Click the horse's slot to hear its whole layer on its own.
+7. Hold the horse's headphones to hear it alone while the other drawings dim, then release to hear the previous mix.
 8. Click **Pause**, remove Horse, and choose **Bell** from the empty slot to bring it back.
 
 Drum, Keys, Cup, and Bell each have a recorded four-bar part and play without an API key.

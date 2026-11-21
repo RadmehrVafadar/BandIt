@@ -253,7 +253,7 @@ test('four identical bells play distinct parts on the same floor grid', async ({
   expect(await bells.evaluateAll(items => items.map(item => item.getAttribute('data-part')))).toEqual(lineup);
 });
 
-test('headphones isolate one object and restore the mix', async ({ page }) => {
+test('clicking or holding headphones isolates the matching audio and artwork', async ({ page }) => {
   await page.addInitScript(() => {
     const audioHits: { drum: boolean; audible: boolean }[] = [];
     const voices = new Set<AudioBuffer>();
@@ -271,6 +271,11 @@ test('headphones isolate one object and restore the mix', async ({ page }) => {
     audioHits: { drum: boolean; audible: boolean }[];
   }).audioHits);
   async function expectMix(keysAudible: boolean, drumAudible: boolean) {
+    for (const [name, audible] of [['Keys', keysAudible], ['Drum', drumAudible]] as const) {
+      const opacity = audible ? '1' : /^0\.[1-9]\d*$/;
+      await expect(page.locator(`[data-performer="${name}"]`)).toHaveCSS('opacity', opacity);
+      await expect(page.getByRole('button', { name: 'Solo ' + name }).locator('.slot-art')).toHaveCSS('opacity', opacity);
+    }
     const start = (await readHits()).length;
     await expect.poll(async () => {
       const hits = (await readHits()).slice(start);
@@ -290,7 +295,15 @@ test('headphones isolate one object and restore the mix', async ({ page }) => {
   await expect(page.getByText('Try drawing', { exact: true })).toHaveCount(0);
   await expect(page.locator('[data-performer="Drum"]')).toHaveAttribute('data-active', 'true', { timeout: 5000 });
 
-  await keysSolo.click();
+  await keysSolo.locator('.solo-icon').click();
+  await expect(keysSolo).toHaveAttribute('aria-pressed', 'true');
+  await expectMix(true, false);
+  await drumSolo.hover();
+  await page.mouse.down();
+  await expect(drumSolo).toHaveAttribute('aria-pressed', 'true');
+  await expectMix(false, true);
+  await page.mouse.move(15, 200);
+  await page.mouse.up();
   await expect(keysSolo).toHaveAttribute('aria-pressed', 'true');
   await expectMix(true, false);
   await drumSolo.click();
@@ -301,14 +314,48 @@ test('headphones isolate one object and restore the mix', async ({ page }) => {
   await expect(drumSolo).toHaveAttribute('aria-pressed', 'false');
   await expectMix(true, true);
 
-  await drumSolo.click();
+  await drumSolo.press('Enter');
+  await expect(drumSolo).toHaveAttribute('aria-pressed', 'true');
+  await keysSolo.focus();
+  await page.keyboard.down('Space');
+  await expect(keysSolo).toHaveAttribute('aria-pressed', 'true');
+  await page.waitForTimeout(550);
+  await page.keyboard.up('Space');
+  await expect(drumSolo).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Remove Drum' }).click();
   await expect(drumSolo).toHaveAttribute('aria-pressed', 'false');
   await expect(drumSolo).toBeDisabled();
+  await expect(page.locator('[data-performer="Keys"]')).toHaveCSS('opacity', '1');
 });
 
 test.describe('touch drawing', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce' });
+
+  test('holding headphones on touch restores the mix on release or cancellation', async ({ page }) => {
+    await page.goto('/');
+    await draw(page, key, 75, 270, true);
+    await page.getByRole('button', { name: 'Use Keys sound' }).click();
+    await draw(page, drum, 175, 340, true);
+    await page.getByRole('button', { name: 'Use Drum sound' }).click();
+    const keysSolo = page.getByRole('button', { name: 'Solo Keys' });
+    const other = page.locator('[data-performer="Drum"]');
+    await expect(other).toHaveAttribute('data-active', 'true');
+    const box = (await keysSolo.boundingBox())!;
+    const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    const touch = await page.context().newCDPSession(page);
+    for (const end of ['touchEnd', 'touchCancel'] as const) {
+      await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
+      await expect(keysSolo).toHaveAttribute('aria-pressed', 'true');
+      await expect(other).toHaveCSS('opacity', /^0\.[1-9]\d*$/);
+      await page.waitForTimeout(550);
+      await touch.send('Input.dispatchTouchEvent', { type: end, touchPoints: [] });
+      await expect(keysSolo).toHaveAttribute('aria-pressed', 'false');
+      await expect(other).toHaveCSS('opacity', '1');
+    }
+    await touch.detach();
+    await keysSolo.tap();
+    await expect(keysSolo).toHaveAttribute('aria-pressed', 'true');
+  });
 
   test('swipes through illustrated guesses without choosing a sound', async ({ page }) => {
     await page.goto('/');

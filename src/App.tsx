@@ -11,6 +11,7 @@ import { createObject, objects } from './objects.ts';
 import type { Suggestion } from './objects.ts';
 import { starters } from './starters.ts';
 import { objectSound, restoreHorseSounds } from './sounds.ts';
+import { useSolo } from './useSolo.ts';
 
 function ObjectArt({ item, size }: { item: Instrument; size: number }) {
   if (item.image || !item.kind) {
@@ -26,7 +27,7 @@ export function App() {
   const [engine, setEngine] = useState<BeatEngine>();
   const [playing, setPlaying] = useState(false);
   const [hits, setHits] = useState<number[]>([]);
-  const [soloId, setSoloId] = useState<string | null>(null);
+  const solo = useSolo(engine);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [, refresh] = useState(0);
@@ -160,14 +161,9 @@ export function App() {
     return true;
   }
 
-  function solo(id: string | null) {
-    engine?.setSolo(id);
-    setSoloId(id);
-  }
-
   function remove(index: number, item: Instrument) {
     if (!engine) return;
-    if (soloId === item.id) solo(null);
+    solo.remove(item.id);
     engine.change(index, null);
     persist();
     setStatus(engine.running && slots[index] ? item.name + ' leaves on the next bar.' : item.name + ' removed from the mix.');
@@ -200,7 +196,7 @@ export function App() {
             '--art-aspect': item.drawing?.aspect,
           } as CSSProperties;
           const queued = slots[index] !== planned[index] || !slots[index];
-          return <div key={item.id} className="performer" style={style}
+          return <div key={item.id} className="performer" style={style} data-solo-muted={solo.isMuted(item.id)}
             ref={element => {
               if (element) actors.current.set(item.id, element);
               else actors.current.delete(item.id);
@@ -217,14 +213,14 @@ export function App() {
           return (
             <div key={index} className="mix-slot">
               <button type="button" className={item ? 'slot-button' : 'slot-button empty-slot'}
-                aria-label={label} title={item ? label : 'Choose a saved object'} aria-pressed={item ? soloId === item.id : undefined}
+                aria-label={label} title={item ? label + ' (click to toggle, hold to preview)' : 'Choose a saved object'}
                 disabled={item ? !planned[index] : !engine || !!loadingSound}
                 popoverTarget={item ? undefined : 'saved-picker'} popoverTargetAction={item ? undefined : 'show'}
                 aria-haspopup={item ? undefined : 'dialog'} aria-expanded={item ? undefined : pickerSlot === index}
-                onClick={() => item ? solo(soloId === item.id ? null : item.id) : setPickerSlot(index)}>
+                {...(item ? solo.buttonProps(item.id) : { onClick: () => setPickerSlot(index) })}>
                 {item ? <>
                   <Headphones className="solo-icon" size={15} />
-                  <span className="slot-art"><ObjectArt item={item} size={28} /></span>
+                  <span className="slot-art" data-solo-muted={solo.isMuted(item.id)}><ObjectArt item={item} size={28} /></span>
                   <span className={queued ? 'slot-label queued' : 'slot-label'}>{queued || item.name}</span>
                 </> : <Plus size={20} strokeWidth={1.5} />}
               </button>

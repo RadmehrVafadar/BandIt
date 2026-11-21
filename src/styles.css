@@ -127,7 +127,8 @@ button:disabled { cursor: default; color: #77777e; }
   --height: calc(var(--width) / var(--art-aspect));
 }
 .performer img { width: 100%; height: 100%; object-fit: contain; }
-.performer[data-queued=true] { opacity: .55; }
+[data-solo-muted=true] { --solo-opacity: .6; opacity: var(--solo-opacity); }
+.performer[data-queued=true] { opacity: calc(.55 * var(--solo-opacity, 1)); }
 .performer[data-hit=true] { filter: drop-shadow(0 1px 3px #aaa); }
 
 .prediction, .board-notice, .error {
@@ -171,6 +172,7 @@ button:disabled { cursor: default; color: #77777e; }
 }
 .empty-slot { color: var(--muted); border: 1px dashed #606066; }
 .empty-slot[aria-expanded=true] { border: 1px solid white; background: var(--hover); }
+.slot-button[aria-pressed] { user-select: none; -webkit-touch-callout: none; }
 .slot-button[aria-pressed=true] { border-color: white; background: #242428; }
 .slot-art { display: grid; place-items: center; width: 32px; height: 32px; }
 .slot-art img { width: 100%; height: 100%; object-fit: contain; }
