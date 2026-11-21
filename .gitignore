@@ -3,4 +3,5 @@ dist/
 playwright-report/
 test-results/
 .env.local
+.sound-cache/
 .env.*.local

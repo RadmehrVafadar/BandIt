@@ -47,7 +47,7 @@ export class BeatEngine {
     });
   }
 
-  private async audio() {
+  async audio() {
     if (!this.context) {
       const context = new AudioContext({ latencyHint: 'interactive' });
       const compressor = context.createDynamicsCompressor();
@@ -114,12 +114,16 @@ export class BeatEngine {
     if (this.context) void this.context.close();
   }
 
+  preview(item: Instrument) {
+    return new Promise<void>(resolve => this.hit(item, this.context!.currentTime, 0.85, 0, resolve));
+  }
+
   private audibleLevel(id: string, level: number, voices: number) {
     if (this.soloId === null) return level / voices;
     return this.soloId === id ? level : 0;
   }
 
-  private hit({ id, sample, role }: Instrument, time: number, level: number, pitch: number) {
+  private hit({ id, sample, role }: Instrument, time: number, level: number, pitch: number, ended?: () => void) {
     const context = this.context!;
     let buffer = this.buffers.get(sample);
     if (!buffer) {
@@ -132,13 +136,14 @@ export class BeatEngine {
     source.buffer = buffer;
     source.playbackRate.value = 2 ** (pitch / 12);
     // Same-role sketches strike in phase and can contain identical samples.
-    const voices = this.slots.filter(slot => slot && this.instruments.get(slot)?.role === role).length;
-    gain.gain.value = this.audibleLevel(id, level, voices);
+    const voices = Math.max(1, this.slots.filter(slot => slot && this.instruments.get(slot)?.role === role).length);
+    gain.gain.value = ended ? level : this.audibleLevel(id, level, voices);
     source.connect(gain).connect(this.compressorInput);
     source.onended = () => {
       this.songNodes.delete(source);
       source.disconnect();
       gain.disconnect();
+      ended?.();
     };
     this.songNodes.set(source, { id, gain, level, voices });
     source.start(time);
