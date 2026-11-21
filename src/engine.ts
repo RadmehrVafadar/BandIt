@@ -1,3 +1,4 @@
+import { renderAccompaniment } from './accompaniment.ts';
 import { hoofbeats, horseCallSteps, horsePluck } from './horse.ts';
 import { chordRoots, loopScore, loopVoice, nativePart, signatureSteps } from './loop-score.ts';
 import type { LoopBank } from './loops.ts';
@@ -14,7 +15,8 @@ export class BeatEngine {
   private context?: AudioContext;
   private compressorInput!: DynamicsCompressorNode;
   private buffers = new WeakMap<Sample, AudioBuffer>();
-  private songNodes = new Map<AudioBufferSourceNode, { id: string; gain: GainNode; level: number }>();
+  private songNodes = new Map<AudioBufferSourceNode, { id: string | null; gain: GainNode; level: number }>();
+  private readonly accompaniment = renderAccompaniment();
   private ensemble: Map<string, Player>;
   private audibleEnsemble: Map<string, Player>;
   private signatureEnds = new Map<string, number>();
@@ -167,13 +169,13 @@ export class BeatEngine {
     if (this.context) void this.context.close();
   }
 
-  private audibleLevel(id: string, level: number) {
+  private audibleLevel(id: string | null, level: number) {
     if (this.soloId !== null) return this.soloId === id ? level : 0;
     // Leave a little more headroom for overlapping tails with each new player.
     return level / (1 + .08 * Math.max(0, this.ensemble.size - 1));
   }
 
-  private hit(id: string, sample: Sample, time: number, level: number, pitch = 0, offset = 0, duration?: number) {
+  private hit(id: string | null, sample: Sample, time: number, level: number, pitch = 0, offset = 0, duration?: number) {
     const context = this.context!;
     let buffer = this.buffers.get(sample);
     if (!buffer) {
@@ -194,6 +196,18 @@ export class BeatEngine {
     };
     this.songNodes.set(source, { id, gain, level });
     source.start(time, offset, duration);
+  }
+
+  private playBar(step: number, time: number) {
+    const phase = step % PHRASE;
+    const beat = step % BAR_STEPS;
+    const duration = (BAR_STEPS - beat) * STEP_SECONDS;
+    for (const [id, player] of this.ensemble) {
+      this.hit(id, player.stem, time, player.accent ? .62 : 1, 0, phase * STEP_SECONDS, duration);
+    }
+    const { bass, strings } = this.accompaniment[Math.floor(phase / BAR_STEPS)];
+    if (bass && this.ensemble.size >= 2) this.hit(null, bass, time, 1, 0, beat * STEP_SECONDS, duration);
+    if (strings && this.ensemble.size >= 3) this.hit(null, strings, time, 1, 0, beat * STEP_SECONDS, duration);
   }
 
   private schedule = () => {
@@ -223,16 +237,13 @@ export class BeatEngine {
       if (applied.size) this.ensemble = this.buildEnsemble();
       const hits: number[] = [];
       if (time >= now - 0.025) {
+        if (beat === 0 || this.resumeStep === step) this.playBar(step, time);
         this.slots.forEach((id, index) => {
           if (!id) return;
           const player = this.ensemble.get(id);
           if (!player) return;
           const offset = step % PHRASE;
           const { accent } = player;
-          if (beat === 0 || this.resumeStep === step) {
-            // Each bar starts at the shared phrase offset, including when an object joins midway.
-            this.hit(id, player.stem, time, accent ? .62 : 1, 0, offset * STEP_SECONDS, (BAR_STEPS - beat) * STEP_SECONDS);
-          }
           const event = player.events.find(([at]) => at === offset);
           if (!event) return;
           hits.push(index);
