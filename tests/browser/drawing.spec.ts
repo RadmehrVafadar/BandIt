@@ -253,23 +253,26 @@ test('four identical bells play distinct parts on the same floor grid', async ({
   expect(await bells.evaluateAll(items => items.map(item => item.getAttribute('data-part')))).toEqual(lineup);
 });
 
-test('clicking or holding headphones isolates the matching audio and artwork', async ({ page }) => {
+test('headphones isolate one object and restore the band and its accompaniment', async ({ page }) => {
+  type AudioHit = { voice: 'keys' | 'drum' | 'backing'; audible: boolean };
   await page.addInitScript(() => {
-    const audioHits: { drum: boolean; audible: boolean }[] = [];
+    const audioHits: AudioHit[] = [];
     const voices = new Set<AudioBuffer>();
     Object.assign(window, { audioHits });
     const connect = AudioNode.prototype.connect;
     AudioNode.prototype.connect = function (this: AudioNode, destination: AudioNode | AudioParam, ...ports: number[]) {
-      if (this instanceof AudioBufferSourceNode && this.buffer?.duration === 10 && destination instanceof GainNode) {
-        voices.add(this.buffer);
-        audioHits.push({ drum: [...voices].indexOf(this.buffer) === 1, audible: destination.gain.value > 0 });
+      if (this instanceof AudioBufferSourceNode && this.buffer && destination instanceof GainNode) {
+        let voice: AudioHit['voice'] = 'backing';
+        if (this.buffer.duration === 10) {
+          voices.add(this.buffer);
+          voice = [...voices][0] === this.buffer ? 'keys' : 'drum';
+        }
+        audioHits.push({ voice, audible: destination.gain.value > 0 });
       }
       return Reflect.apply(connect, this, [destination, ...ports]);
     } as typeof connect;
   });
-  const readHits = () => page.evaluate(() => (window as unknown as {
-    audioHits: { drum: boolean; audible: boolean }[];
-  }).audioHits);
+  const readHits = () => page.evaluate(() => (window as unknown as { audioHits: AudioHit[] }).audioHits);
   async function expectMix(keysAudible: boolean, drumAudible: boolean) {
     for (const [name, audible] of [['Keys', keysAudible], ['Drum', drumAudible]] as const) {
       const opacity = audible ? '1' : /^0\.[1-9]\d*$/;
@@ -277,11 +280,11 @@ test('clicking or holding headphones isolates the matching audio and artwork', a
       await expect(page.getByRole('button', { name: 'Solo ' + name }).locator('.slot-art')).toHaveCSS('opacity', opacity);
     }
     const start = (await readHits()).length;
+    const audible = { keys: keysAudible, drum: drumAudible, backing: keysAudible && drumAudible };
     await expect.poll(async () => {
       const hits = (await readHits()).slice(start);
-      return hits.some(hit => !hit.drum) && hits.some(hit => hit.drum)
-        && hits.every(hit => hit.audible === (hit.drum ? drumAudible : keysAudible));
-    }).toBe(true);
+      return new Set(hits.map(hit => hit.voice)).size === 3 && hits.every(hit => hit.audible === audible[hit.voice]);
+    }, { timeout: 6500 }).toBe(true);
   }
 
   await page.goto('/');
@@ -325,7 +328,10 @@ test('clicking or holding headphones isolates the matching audio and artwork', a
   await page.getByRole('button', { name: 'Remove Drum' }).click();
   await expect(drumSolo).toHaveAttribute('aria-pressed', 'false');
   await expect(drumSolo).toBeDisabled();
-  await expect(page.locator('[data-performer="Keys"]')).toHaveCSS('opacity', '1');
+  await expect(drumSolo).toHaveCount(0);
+  const removed = (await readHits()).length;
+  await expect.poll(async () => (await readHits()).length - removed, { timeout: 6500 }).toBeGreaterThanOrEqual(2);
+  expect((await readHits()).slice(removed).every(hit => hit.voice === 'keys' && hit.audible)).toBe(true);
 });
 
 test.describe('touch drawing', () => {
@@ -428,14 +434,22 @@ async function trackNotes(page: Page) {
   return () => page.evaluate(() => (window as unknown as { notes: Hit[] }).notes);
 }
 
-test('four drawings layer on one phrase, including for a returning Original listener', async ({ page }) => {
+test('four drawings and their accompaniment share one phrase, including for a returning Original listener', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('bandit-playback', 'original');
     const buffers = new Set<AudioBuffer>();
     const scheduled: { time: number; offset: number; duration?: number; voice: number }[] = [];
-    Object.assign(window, { scheduled });
+    let audio: BaseAudioContext | undefined;
+    function inStringSwell() {
+      const time = scheduled.at(-1)?.time;
+      if (!audio || time === undefined) return false;
+      const elapsed = audio.currentTime - time;
+      return elapsed > .8 && elapsed < 1.4 && scheduled.filter(note => note.time === time).length === 6;
+    }
+    Object.assign(window, { scheduled, inStringSwell });
     const start = AudioBufferSourceNode.prototype.start;
     AudioBufferSourceNode.prototype.start = function (time = 0, offset = 0, duration?: number) {
+      audio = this.context;
       if (this.buffer?.duration === 10) buffers.add(this.buffer);
       scheduled.push({ time, offset, duration, voice: [...buffers].indexOf(this.buffer!) });
       return start.call(this, time, offset, duration);
@@ -455,20 +469,39 @@ test('four drawings layer on one phrase, including for a returning Original list
     await draw(page, sketch, 40 + index * 115, 90);
     await page.getByRole('button', { name: 'Use ' + name + ' sound', exact: true }).click();
   }
-  await expect.poll(async () => Math.max(...(await notes()).map(note => note.voice))).toBe(3);
+  await page.waitForFunction(() => (window as unknown as { inStringSwell(): boolean }).inStringSwell(),
+    undefined, { timeout: 12000 });
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
   const played = await notes();
   expect(liveRequests).toEqual([]);
-  for (const note of played) {
-    expect(note.voice).toBeGreaterThanOrEqual(0);
-    expect(note.duration).toBe(2.5);
-    expect(note.offset).toBeCloseTo((note.time - played[0].time) % 10, 5);
+  for (const time of new Set(played.map(note => note.time))) {
+    const notesAtBar = played.filter(note => note.time === time);
+    const stems = notesAtBar.filter(note => note.voice >= 0);
+    const bar = Math.round((time - played[0].time) / 2.5) % 4;
+    const bass = stems.length >= 2 && bar >= 1;
+    const strings = stems.length >= 3 && bar >= 2;
+    expect(notesAtBar.length).toBe(stems.length + Number(bass) + Number(strings));
+    for (const note of notesAtBar) {
+      expect(note.duration).toBe(2.5);
+      expect(note.offset).toBeCloseTo(note.voice < 0 ? 0 : bar * 2.5, 5);
+    }
   }
-  await page.getByRole('button', { name: 'Pause', exact: true }).click();
-  const count = (await notes()).length;
+  const count = played.length;
   await page.getByRole('button', { name: 'Remove Cup' }).click();
   await expect(page.locator('[data-performer="Cup"]')).toHaveCount(0);
   await page.getByRole('button', { name: 'Play', exact: true }).click();
-  await expect.poll(async () => new Set((await notes()).slice(count).map(note => note.voice)).size).toBe(3);
+  await expect.poll(async () => (await notes()).length).toBeGreaterThan(count);
+  const resumed = (await notes()).slice(count);
+  const slice = resumed.filter(note => note.time === resumed[0].time);
+  expect(new Set(slice.filter(note => note.voice >= 0).map(note => note.voice)).size).toBe(3);
+  const withinBar = slice.find(note => note.voice >= 0)!.offset % 2.5;
+  expect(withinBar).toBeGreaterThan(0);
+  const backing = slice.filter(note => note.voice < 0);
+  expect(backing).toHaveLength(2);
+  for (const note of backing) {
+    expect(note.offset).toBeCloseTo(withinBar, 5);
+    expect(note.duration).toBeCloseTo(2.5 - withinBar, 5);
+  }
   await page.reload();
   await expect(page.locator('[data-performer]')).toHaveCount(3);
   await page.getByRole('button', { name: 'Play', exact: true }).click();
