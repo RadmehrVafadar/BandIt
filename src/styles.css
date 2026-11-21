@@ -23,29 +23,21 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .intro, .board-tools, .mix-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .intro { min-height: 55px; margin-bottom: 10px; }
 .brand { display: flex; gap: 9px; align-items: center; font: 680 1.45rem var(--heading); letter-spacing: -.035em; }
-.brand-icon { display: grid; place-items: center; width: 34px; height: 34px; perspective: 100px; }
 .brand-note {
-  position: relative;
-  width: 32px;
-  height: 32px;
-  transform-style: preserve-3d;
-  transform: rotateX(-10deg) rotateY(-24deg);
-}
-.brand-note i {
-  position: absolute;
-  inset: 0;
-  background: #503685;
-  mask: url('/bandit-note.svg') center / contain no-repeat;
-}
-.brand-note i:first-child, .brand-note i:last-child {
-  background: linear-gradient(140deg, #b99bff 12%, #8a65db 40%, #5935a2 75%);
+  width: 34px;
+  height: 34px;
+  flex: none;
+  background: url('/bandit-note.png') left center / auto 100% no-repeat;
 }
 @keyframes note-turn {
-  from { transform: rotateX(-10deg) rotateY(-24deg); }
-  to { transform: rotateX(-10deg) rotateY(336deg); }
+  to { background-position-x: 100%; }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .brand-note { animation: note-turn 6s linear infinite; }
+  .brand-note {
+    background-image: url('/bandit-turntable.png');
+    /* The last frame sits at 100%, one step before the turn loops. */
+    animation: note-turn 4s steps(96, jump-none) infinite;
+  }
 }
 .transport { display: flex; align-items: center; gap: 12px; }
 .tempo { display: flex; align-items: baseline; gap: 4px; color: var(--muted); font-size: .73rem; font-weight: 700; }

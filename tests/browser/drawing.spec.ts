@@ -24,8 +24,10 @@ test('BandIt shows a rotating note and respects reduced motion', async ({ page }
   await expect(page).toHaveTitle('BandIt');
   const note = page.getByRole('heading', { name: 'BandIt', exact: true }).locator('.brand-note');
   await expect(note).toHaveCSS('animation-name', 'note-turn');
+  await expect(note).toHaveCSS('background-image', /bandit-turntable\.png/);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(note).toHaveCSS('animation-name', 'none');
+  await expect(note).toHaveCSS('background-image', /bandit-note\.png/);
   await expect(note).toBeVisible();
 });
 

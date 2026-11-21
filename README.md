@@ -1,6 +1,7 @@
 # BandIt
 
 BandIt turns sketches of everyday objects into a beat that plays every time they hit the floor.
+Its rainbow note logo rotates in the header and holds still when reduced motion is enabled.
 
 ## Features
 

@@ -179,13 +179,7 @@ export function App() {
       <main className="workspace">
         <header className="intro">
           <h1 className="brand">
-            <span className="brand-icon" aria-hidden="true">
-              <span className="brand-note">
-                {Array.from({ length: 13 }, (_, layer) => (
-                  <i key={layer} style={{ transform: `translateZ(${(layer - 6) * 0.5}px)` }} />
-                ))}
-              </span>
-            </span>
+            <span className="brand-note" aria-hidden="true" />
             BandIt
           </h1>
           <div className="transport">
