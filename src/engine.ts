@@ -1,10 +1,11 @@
-import { partSample } from './part-sample.ts';
-import { hoofbeats, horseCallSteps } from './horse.ts';
-import { BAR_STEPS, STEP_SECONDS, PHRASE, arrange, bounceHeight, phrase, updateQueue } from './music.ts';
-import type { Change, Instrument, Part, Sample, Slots } from './music.ts';
+import { hoofbeats, horseCallSteps, horsePluck } from './horse.ts';
+import { chordRoots, loopScore, loopVoice, nativePart, signatureSteps } from './loop-score.ts';
+import type { LoopBank } from './loops.ts';
+import { BAR_STEPS, STEP_SECONDS, PHRASE, arrange, bounceHeight, updateQueue } from './music.ts';
+import type { Change, Hit, Instrument, Part, Sample, Slots } from './music.ts';
 
 type Frame = { step: number; hits: number[]; slots: Slots };
-type Player = { part: Part; events: ReturnType<typeof phrase>; sample: Sample; whinnySteps?: Set<number> };
+type Player = { part: Part; events: readonly Hit[]; stem: Sample; accent?: { sample: Sample; steps: Set<number> } };
 type ScheduledFrame = Frame & { ensemble: Map<string, Player>; time: number; applied: Map<number, Change> };
 const LOOKAHEAD = 0.105;
 
@@ -13,10 +14,10 @@ export class BeatEngine {
   private context?: AudioContext;
   private compressorInput!: DynamicsCompressorNode;
   private buffers = new WeakMap<Sample, AudioBuffer>();
-  private songNodes = new Map<AudioBufferSourceNode, { id: string; gain: GainNode; level: number; preview: boolean }>();
+  private songNodes = new Map<AudioBufferSourceNode, { id: string; gain: GainNode; level: number }>();
   private ensemble: Map<string, Player>;
   private audibleEnsemble: Map<string, Player>;
-  private variants = new WeakMap<Sample, Map<Part, Sample>>();
+  private signatureEnds = new Map<string, number>();
   private soloId: string | null = null;
   private slots: Slots;
   private frames: ScheduledFrame[] = [];
@@ -27,12 +28,14 @@ export class BeatEngine {
   private position = -1;
   private playhead = -2.4;
   private audibleSlots: Slots;
+  private resumeStep = 0;
 
   constructor(
     slots: Slots,
     private readonly instruments: Map<string, Instrument>,
     private readonly onFrame: (frame: Frame) => void,
     private readonly onClock: (step: number, landed: string[]) => void,
+    private readonly loops: LoopBank,
     savedParts = new Map<string, Part>(),
   ) {
     this.slots = slots;
@@ -42,7 +45,10 @@ export class BeatEngine {
   }
 
   private assign(slots: Slots, previous = new Map(Array.from(this.ensemble ?? [], ([id, player]) => [id, player.part]))) {
-    const players = slots.flatMap(id => id && this.instruments.has(id) ? [this.instruments.get(id)!] : []);
+    const players = slots.flatMap(id => {
+      const item = id && this.instruments.get(id);
+      return item ? [{ id: item.id, role: item.role, nativePart: nativePart(item) }] : [];
+    });
     return arrange(players, previous);
   }
 
@@ -53,15 +59,16 @@ export class BeatEngine {
   private buildEnsemble(previous?: Map<string, Part>) {
     const parts = this.assign(this.slots, previous);
     const horses = [...parts.keys()].filter(id => this.instruments.get(id)!.sample.articulation === 'whinny');
-    return new Map(Array.from(parts, ([id, part]) => {
-      const { sample } = this.instruments.get(id)!;
-      const variants = this.variants.get(sample) ?? new Map<Part, Sample>();
-      if (!variants.has(part)) variants.set(part, partSample(sample, part));
-      this.variants.set(sample, variants);
-      const events = phrase(part, parts.size === 1);
+    return new Map<string, Player>(Array.from(parts, ([id, part]): [string, Player] => {
+      const item = this.instruments.get(id)!;
+      const { sample } = item;
+      const events = loopScore[loopVoice[part]];
+      const player: Player = { part, events, stem: this.loops.get(part)! };
+      if (nativePart(item) === part && !sample.preserveRecording) return [id, player];
       const horseIndex = horses.indexOf(id);
-      const whinnySteps = horseIndex < 0 ? undefined : horseCallSteps(events, horseIndex, horses.length, parts.size);
-      return [id, { part, events, sample: variants.get(part)!, whinnySteps }];
+      const steps = horseIndex < 0 ? signatureSteps(events, sample.samples.length / sample.rate)
+        : horseCallSteps(events, horseIndex, horses.length, parts.size);
+      return [id, { ...player, accent: { sample, steps } }];
     }));
   }
 
@@ -108,6 +115,7 @@ export class BeatEngine {
   async play() {
     await this.audio();
     if (this.running) return;
+    this.resumeStep = this.next;
     this.anchor = this.context!.currentTime + 0.055 - this.playhead * STEP_SECONDS;
     this.timer = window.setInterval(this.schedule, 22);
     this.schedule();
@@ -121,6 +129,7 @@ export class BeatEngine {
     cancelAnimationFrame(this.animation);
     for (const node of this.songNodes.keys()) node.stop();
     this.songNodes.clear();
+    this.signatureEnds.clear();
     for (const frame of this.frames) {
       for (const [index, change] of frame.applied) {
         if (!this.pending.has(index)) this.pending.set(index, change);
@@ -149,7 +158,6 @@ export class BeatEngine {
   setSolo(id: string | null) {
     this.soloId = id;
     for (const hit of this.songNodes.values()) {
-      if (hit.preview) continue;
       hit.gain.gain.setTargetAtTime(this.audibleLevel(hit.id, hit.level), hit.gain.context.currentTime, 0.005);
     }
   }
@@ -159,17 +167,13 @@ export class BeatEngine {
     if (this.context) void this.context.close();
   }
 
-  preview({ id, sample }: Instrument) {
-    return new Promise<void>(resolve => this.hit(id, sample, this.context!.currentTime, 0.85, 0, resolve));
-  }
-
   private audibleLevel(id: string, level: number) {
     if (this.soloId !== null) return this.soloId === id ? level : 0;
     // Leave a little more headroom for overlapping tails with each new player.
     return level / (1 + .08 * Math.max(0, this.ensemble.size - 1));
   }
 
-  private hit(id: string, sample: Sample, time: number, level: number, pitch: number, ended?: () => void) {
+  private hit(id: string, sample: Sample, time: number, level: number, pitch = 0, offset = 0, duration?: number) {
     const context = this.context!;
     let buffer = this.buffers.get(sample);
     if (!buffer) {
@@ -181,16 +185,15 @@ export class BeatEngine {
     const gain = context.createGain();
     source.buffer = buffer;
     source.playbackRate.value = 2 ** (pitch / 12);
-    gain.gain.value = ended ? level : this.audibleLevel(id, level);
+    gain.gain.value = this.audibleLevel(id, level);
     source.connect(gain).connect(this.compressorInput);
     source.onended = () => {
       this.songNodes.delete(source);
       source.disconnect();
       gain.disconnect();
-      ended?.();
     };
-    this.songNodes.set(source, { id, gain, level, preview: !!ended });
-    source.start(time);
+    this.songNodes.set(source, { id, gain, level });
+    source.start(time, offset, duration);
   }
 
   private schedule = () => {
@@ -206,6 +209,14 @@ export class BeatEngine {
           if (!change || change.at > step) return id;
           applied.set(index, change);
           this.pending.delete(index);
+          if (id && id !== change.id) {
+            this.signatureEnds.delete(id);
+            for (const [source, hit] of this.songNodes) {
+              if (hit.id !== id) continue;
+              hit.gain.gain.setTargetAtTime(0, time, .003);
+              source.stop(time + .015);
+            }
+          }
           return change.id;
         });
       }
@@ -215,18 +226,35 @@ export class BeatEngine {
         this.slots.forEach((id, index) => {
           if (!id) return;
           const player = this.ensemble.get(id);
-          const event = player?.events.find(([offset]) => offset === step % PHRASE);
-          if (!player || !event) return;
-          const [, level, pitch = 0] = event;
-          const clop = player.whinnySteps?.has(event[0]) === false;
-          const sample = clop ? hoofbeats() : player.sample;
-          this.hit(id, sample, time, clop ? level * .58 : level, sample.preserveRecording ? 0 : pitch);
+          if (!player) return;
+          const offset = step % PHRASE;
+          const { accent } = player;
+          if (beat === 0 || this.resumeStep === step) {
+            // Each bar starts at the shared phrase offset, including when an object joins midway.
+            this.hit(id, player.stem, time, accent ? .62 : 1, 0, offset * STEP_SECONDS, (BAR_STEPS - beat) * STEP_SECONDS);
+          }
+          const event = player.events.find(([at]) => at === offset);
+          if (!event) return;
           hits.push(index);
+          if (accent) this.playAccent(id, accent, offset, time, event[1]);
         });
-      }
+      } else this.resumeStep = step + 1;
       this.frames.push({ step, time, hits, slots: this.slots, ensemble: this.ensemble, applied });
     }
   };
+
+  private playAccent(id: string, accent: NonNullable<Player['accent']>, step: number, time: number, level: number) {
+    const { sample, steps } = accent;
+    const featured = steps.has(step);
+    if (featured && time >= (this.signatureEnds.get(id) ?? 0)) {
+      this.hit(id, sample, time, .80 * level);
+      this.signatureEnds.set(id, time + sample.samples.length / sample.rate);
+    }
+    if (sample.articulation === 'whinny') {
+      if (!featured) this.hit(id, hoofbeats(), time, .46 * level);
+      this.hit(id, horsePluck(), time, (featured ? .25 : .38) * level, chordRoots[Math.floor(step / BAR_STEPS)]);
+    }
+  }
 
   private draw = () => {
     const context = this.context!;

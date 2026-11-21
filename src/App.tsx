@@ -4,6 +4,8 @@ import { Headphones, Pause, Play, Plus, X } from 'lucide-react';
 import { Drawing } from './Drawing.tsx';
 import { BeatEngine } from './engine.ts';
 import { emptyStage, openLibrary, readLibrary, storeStage } from './library.ts';
+import { nativePart } from './loop-score.ts';
+import { loadLoops } from './loops.ts';
 import type { DrawingSize, Instrument, Part, Position, Slots } from './music.ts';
 import { createObject, objects } from './objects.ts';
 import type { Suggestion } from './objects.ts';
@@ -44,6 +46,7 @@ export function App() {
     const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     async function load() {
+      const loadingLoops = loadLoops();
       let arrangement = emptyStage;
       let parts: Map<string, Part> | undefined;
       try {
@@ -62,6 +65,7 @@ export function App() {
       } catch {
         if (!canceled) setError('Local storage is unavailable. You can still draw and play.');
       }
+      const loops = await loadingLoops;
       if (canceled) return;
       setSlots(arrangement);
       instance = new BeatEngine(arrangement, bank.current, frame => {
@@ -73,7 +77,7 @@ export function App() {
           const rise = landed.includes(id) ? 0 : height;
           actor.style.setProperty('--rise', String(motion.matches ? 1 : rise));
         }
-      }, parts);
+      }, loops, parts);
       setEngine(instance);
     }
 
@@ -141,12 +145,13 @@ export function App() {
     setLoadingSound(name);
     setError('');
     const item = { ...createObject(suggestion, position), name, image, drawing };
+    const native = nativePart(item);
     // Unlock browser audio inside the user's tap, before waiting for the network.
-    void engine.audio().then(context => objectSound(name, context)).then(sample => {
-      item.sample = sample;
-      return engine.preview(item);
+    void engine.audio().then(async context => {
+      // Bell's bundled stem and its recognizable accent both use the built-in bell.
+      if (native !== 'hook') item.sample = await objectSound(name, context);
     }).catch(() => {
-      setError(name + ' is using its built-in sound. The clip was unavailable.');
+      if (!native) setError(name + ' is using its built-in sound. The clip was unavailable.');
     }).finally(() => {
       add(item, firstFree, true);
       preparing.current = false;

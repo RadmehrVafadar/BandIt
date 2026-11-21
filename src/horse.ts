@@ -2,6 +2,23 @@ import { BAR_STEPS, PHRASE } from './music.ts';
 import type { Hit, Sample } from './music.ts';
 
 let hooves: Sample | undefined;
+let pluck: Sample | undefined;
+
+export function horsePluck(): Sample {
+  if (pluck) return pluck;
+  const rate = 24000;
+  const samples = new Float32Array(rate * .48);
+  for (let i = 0; i < samples.length; i++) {
+    const t = i / rate;
+    const phase = 2 * Math.PI * 130.8128 * t;
+    const body = .35 * Math.sin(phase) + .16 * Math.sin(phase * 2) * Math.exp(-6 * t);
+    const attack = .12 * Math.sin(phase * 3) + .08 * Math.sin(phase * 5);
+    samples[i] = (body + attack * Math.exp(-24 * t)) * Math.exp(-8 * t)
+      * Math.min(1, t / .005, (samples.length - 1 - i) / (rate * .02));
+  }
+  pluck = { rate, samples };
+  return pluck;
+}
 
 export function hoofbeats(): Sample {
   if (hooves) return hooves;
