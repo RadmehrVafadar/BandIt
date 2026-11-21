@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "api/sounds.ts": {
+      "includeFiles": "public/doodlenet/class_names.txt",
+      "maxDuration": 30
+    }
+  }
+}
