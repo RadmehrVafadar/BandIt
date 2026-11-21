@@ -20,6 +20,10 @@ export const objects = {
 const durations = { keys: 0.23, drum: 0.34, bell: 0.62, cup: 0.2, pencil: 0.105, whistle: 0.22 };
 export type Suggestion = { name: string; kind: ObjectKind; label?: string };
 
+export function drawingFile(name: string) {
+  return 'drawings/' + name.toLowerCase().replaceAll(' ', '-') + '.svg';
+}
+
 const familiarSounds: Record<string, ObjectKind> = {
   key: 'keys', drums: 'drum', cup: 'cup', pencil: 'pencil',
 };

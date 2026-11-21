@@ -4,8 +4,8 @@ import { PencilLine, Trash2, Undo2 } from 'lucide-react';
 import type { DrawingSize, Position } from './music.ts';
 import { bounds, templateScores } from './sketch.ts';
 import type { Stroke } from './sketch.ts';
-import { doodlePixels } from './doodle.ts';
-import { objects, doodleSuggestion } from './objects.ts';
+import { doodlePixels, suggestionLimit } from './doodle.ts';
+import { objects, doodleSuggestion, drawingFile } from './objects.ts';
 import type { Suggestion } from './objects.ts';
 
 type Props = {
@@ -37,7 +37,7 @@ export function Drawing({ children, disabled, empty, full, onChoose }: Props) {
     setRecognition('');
     if (!sketch.length) return;
     const ranked = templateScores(sketch);
-    const fallback = ranked.slice(0, 3).map(([kind]) => ({ kind, name: objects[kind].name }));
+    const fallback = ranked.map(([kind]) => ({ kind, name: objects[kind].name }));
     const failed = () => {
       if (id !== revision.current) return;
       setRecognition('Using basic sounds');
@@ -57,7 +57,7 @@ export function Drawing({ children, disabled, empty, full, onChoose }: Props) {
         const guesses = data.labels.map(doodleSuggestion);
         // Preserve close matches to the six original instrument templates.
         if (ranked[0][1] < 0.004) guesses.unshift(fallback[0]);
-        setSuggestions(guesses.filter((guess, i) => guesses.findIndex(g => g.name === guess.name) === i).slice(0, 3));
+        setSuggestions(guesses.filter((guess, i) => guesses.findIndex(g => g.name === guess.name) === i).slice(0, suggestionLimit));
         setRecognition('');
       };
       const base = new URL(import.meta.env.BASE_URL + 'doodlenet/', document.baseURI).href;
@@ -187,18 +187,22 @@ export function Drawing({ children, disabled, empty, full, onChoose }: Props) {
         <h2 id="board-title" className="sr-only">Drawing board</h2>
         {suggestions.length
           ? <div className="prediction" role="group" aria-label="Sound suggestions">
-            <span>{recognition || 'Did you draw'}</span>
-            {suggestions.map(suggestion => {
-              const { kind, name } = suggestion;
-              const { Icon } = objects[kind];
-              return <button type="button" key={name} className="suggestion" aria-label={'Use ' + name + ' sound'}
-                disabled={drawing || disabled} onClick={() => choose(suggestion)}
-                onPointerUp={event => {
-                  if (event.pointerType !== 'touch') return;
-                  const target = document.elementFromPoint(event.clientX, event.clientY);
-                  if (event.currentTarget.contains(target)) choose(suggestion);
-                }}><Icon size={19} aria-hidden="true" />{name}</button>;
-            })}
+            <span className="prediction-label">Do you mean:{recognition && <small>{recognition}</small>}</span>
+            <div className="suggestion-strip">
+              {suggestions.map(suggestion => (
+                <button type="button" key={suggestion.name} className="suggestion"
+                  aria-label={'Use ' + suggestion.name + ' sound'} disabled={drawing || disabled}
+                  onClick={() => choose(suggestion)}
+                  onPointerUp={event => {
+                    if (event.pointerType !== 'touch') return;
+                    const target = document.elementFromPoint(event.clientX, event.clientY);
+                    if (event.currentTarget.contains(target)) choose(suggestion);
+                  }}>
+                  <img src={import.meta.env.BASE_URL + drawingFile(suggestion.name)} alt="" draggable={false} />
+                  <span>{suggestion.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
           : <p className="prediction" role="status">{recognition || 'Sketch an object to find its sound.'}</p>}
       </div>

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { objectSample, objects } from '../../src/objects.ts';
+import { readdirSync, readFileSync } from 'node:fs';
+import { doodleSuggestion, drawingFile, objectSample, objects } from '../../src/objects.ts';
 import { rankSketch } from '../../src/sketch.ts';
 import type { ObjectKind } from '../../src/sketch.ts';
 
@@ -19,6 +20,15 @@ const sketches: Record<string, [ObjectKind, number[][][]]> = {
   whistle: ['whistle', [[[2, 9], [2, 4], [13, 4], [18, 1], [23, 2], [26, 6], [25, 11], [20, 14], [15, 12], [13, 10], [2, 9]],
     [[16, 5], [21, 5], [20, 8], [16, 8], [16, 5]]]],
 };
+
+test('each classifier and basic suggestion has its own local illustration', () => {
+  const labels = readFileSync(new URL('../../public/doodlenet/class_names.txt', import.meta.url), 'utf8').trim().split(/\r?\n/);
+  const names = new Set([...labels.map(label => doodleSuggestion(label).name), ...Object.values(objects).map(o => o.name)]);
+  const files = [...names].map(drawingFile);
+  assert.equal(new Set(files).size, names.size);
+  const bundled = readdirSync(new URL('../../public/drawings/', import.meta.url)).map(file => 'drawings/' + file);
+  assert.deepEqual(files.sort(), bundled.sort());
+});
 
 for (const [shape, [kind, strokes]] of Object.entries(sketches)) {
   test('recognize ' + shape + ' across translations, scales, and stroke directions', () => {
