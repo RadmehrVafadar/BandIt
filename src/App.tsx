@@ -4,8 +4,8 @@ import { Headphones, Pause, Play, X } from 'lucide-react';
 import { Drawing } from './Drawing.tsx';
 import { BeatEngine } from './engine.ts';
 import { emptyStage, openLibrary, readLibrary, storeStage } from './library.ts';
-import { BAR_STEPS, BPM, bounceHeight } from './music.ts';
-import type { DrawingSize, Instrument, Position, Slots } from './music.ts';
+import { BAR_STEPS, BPM } from './music.ts';
+import type { DrawingSize, Instrument, Part, Position, Slots } from './music.ts';
 import { createObject, objects } from './objects.ts';
 import type { Suggestion } from './objects.ts';
 import { starters } from './starters.ts';
@@ -43,6 +43,7 @@ export function App() {
 
     async function load() {
       let arrangement = emptyStage;
+      let parts: Map<string, Part> | undefined;
       try {
         const connection = await openLibrary();
         if (canceled) return connection.close();
@@ -54,6 +55,7 @@ export function App() {
           || saved.instruments.some(item => !item.kind);
         setInstruments(hasLegacyLibrary ? [...starters, ...saved.instruments] : saved.instruments);
         arrangement = saved.slots;
+        parts = saved.parts;
       } catch {
         if (!canceled) setError('Local storage is unavailable. You can still draw and play.');
       }
@@ -65,12 +67,11 @@ export function App() {
         setSlots(frame.slots);
       }, (position, landed) => {
         for (const [id, actor] of actors.current) {
-          const item = bank.current.get(id)!;
-          const height = bounceHeight(item.role, position, entrances.current.get(id) ?? 0);
+          const height = instance!.height(id, position, entrances.current.get(id) ?? 0);
           const rise = landed.includes(id) ? 0 : height;
           actor.style.setProperty('--rise', String(motion.matches ? 1 : rise));
         }
-      });
+      }, parts);
       setEngine(instance);
     }
 
@@ -106,7 +107,7 @@ export function App() {
 
   function persist(item?: Instrument) {
     if (engine && db.current) {
-      void storeStage(db.current, engine.arrangement, item).catch(() => {
+      void storeStage(db.current, engine.arrangement, item, engine.plannedParts).catch(() => {
         setError('The mix could not be saved on this device.');
       });
     }
@@ -206,7 +207,7 @@ export function App() {
                 ref={element => {
                   if (element) actors.current.set(item.id, element);
                   else actors.current.delete(item.id);
-                }} data-performer={item.name} data-active={slots[index] === item.id}
+                }} data-part={engine?.part(item.id)} data-performer={item.name} data-active={slots[index] === item.id}
                 data-hit={hits.includes(index)} data-queued={queued} data-drawing={!!item.drawing} aria-hidden="true">
                 <ObjectArt item={item} size={36} />
               </div>;

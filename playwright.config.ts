@@ -1,18 +1,21 @@
 import { defineConfig } from '@playwright/test';
 
+const port = Number(process.env.POCKET_BAND_TEST_PORT ?? 4183);
+const baseURL = 'http://127.0.0.1:' + port;
+
 export default defineConfig({
   testDir: './tests/browser',
   workers: 1,
   timeout: 30000,
   use: {
-    baseURL: 'http://127.0.0.1:4183',
+    baseURL,
     launchOptions: {
       executablePath: process.env.BANDIT_CHROME ?? process.env.POCKET_BAND_CHROME,
     },
   },
   webServer: {
-    command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 4183 --strictPort',
-    url: 'http://127.0.0.1:4183',
+    command: 'npm run build && npm run preview -- --host 127.0.0.1 --port ' + port + ' --strictPort',
+    url: baseURL,
     reuseExistingServer: false,
   },
 });

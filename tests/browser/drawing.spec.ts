@@ -123,7 +123,7 @@ test('draw keys, hear a floor hit, and layer a drum at the next bar', async ({ p
     const { hits } = window as unknown as { hits: { at: number; duration: number }[] };
     const firstDrum = hits.find(hit => hit.duration > 0.3)!;
     return Math.round((firstDrum.at - hits[0].at) / 0.15) % 16;
-  })).toBe(14);
+  })).toBe(0);
 
   await pause.click();
   const frozen = await keys.boundingBox();
@@ -162,36 +162,21 @@ test('four distinct sounds fill the stage and removing a layer frees room', asyn
   await expect(page.getByLabel('Draw an object')).toHaveAttribute('data-disabled', 'false', { timeout: 5000 });
 });
 
-test('two identical drums share the headroom of one drum', async ({ page }) => {
-  await page.addInitScript(() => {
-    const levels: Record<number, number[]> = {};
-    Object.assign(window, { levels });
-    const start = AudioBufferSourceNode.prototype.start;
-    const connect = AudioNode.prototype.connect;
-    const gains = new WeakMap<AudioBufferSourceNode, GainNode>();
-    AudioNode.prototype.connect = function (this: AudioNode, destination: AudioNode | AudioParam, ...ports: number[]) {
-      if (this instanceof AudioBufferSourceNode && destination instanceof GainNode) gains.set(this, destination);
-      return Reflect.apply(connect, this, [destination, ...ports]);
-    } as typeof connect;
-    AudioBufferSourceNode.prototype.start = function (when = 0, offset = 0, duration?: number) {
-      const gain = gains.get(this);
-      if (gain) (levels[when] ??= []).push(gain.gain.value);
-      return start.call(this, when, offset, duration);
-    };
-  });
+test('four identical bells play distinct parts on the same floor grid', async ({ page }) => {
   await page.goto('/');
-  for (const x of [80, 250]) {
-    await draw(page, drum, x, 90);
-    await page.getByRole('button', { name: 'Use Drum sound' }).click();
+  for (const x of [35, 150, 265, 380]) {
+    await draw(page, bell, x, 80);
+    await page.getByRole('button', { name: 'Use Bell sound' }).click();
   }
-  const hitLevels = () => page.evaluate(() => Object.values((window as unknown as {
-    levels: Record<number, number[]>;
-  }).levels));
-  await expect.poll(async () => (await hitLevels()).some(hit => hit.length === 2)).toBe(true);
-  const hits = await hitLevels();
-  // Both arrangements start on the downbeat with the same accent.
-  const pair = hits.find(hit => hit.length === 2)!;
-  expect(pair[0] + pair[1]).toBeCloseTo(hits[0][0]);
+  const bells = page.locator('[data-performer="Bell"][data-active=true]');
+  await expect(bells).toHaveCount(4);
+  const lineup = await bells.evaluateAll(items => items.map(item => item.getAttribute('data-part')));
+  const parts = [...lineup].sort();
+  expect(parts).toEqual(['backbeat', 'hook', 'motion', 'pulse']);
+  for (const part of parts) await expect(bells.and(page.locator('[data-part="' + part + '"]'))).toHaveAttribute('data-hit', 'true');
+  await page.reload();
+  await expect(bells).toHaveCount(4);
+  expect(await bells.evaluateAll(items => items.map(item => item.getAttribute('data-part')))).toEqual(lineup);
 });
 
 test('headphones isolate one object and restore the mix', async ({ page }) => {

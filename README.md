@@ -41,10 +41,10 @@ The band keeps playing while a new sound loads, and uses a built-in voice if sou
 Recognition runs in a browser worker using [DoodleNet by Yining Shi](https://github.com/yining1023/doodleNet), trained on the [Google Quick, Draw! dataset](https://github.com/googlecreativelab/quickdraw-dataset) (CC BY 4.0).
 The site serves the [model weights and matching labels](https://github.com/ml5js/ml5-data-and-models/tree/main/models/doodlenet) with the app and keeps drawings on the device.
 Close matches to the original six instrument templates remain available, and these templates provide suggestions if the model cannot load.
-Each recognized label uses one of six rhythmic parts.
 The strip shows up to eight illustrated guesses in ranked order and scrolls horizontally on smaller screens.
 Picking an illustration assigns its sound to your freehand drawing.
-Layers that share a sound role are balanced together, and soloing restores the selected layer's full level.
+Try drawing four bells to hear a damped low pulse, a clipped backbeat, muted offbeats, and a ringing C-minor hook.
+Every lineup uses the same two-bar score, with parts assigned to suit the sounds and changes landing on the next bar.
 BandIt saves the original sketches, positions, and sounds in IndexedDB for the current browser profile and origin.
 Older recorded instruments already onstage still use their images and recordings.
 You can bring other previously saved instruments back from **Saved objects**.
