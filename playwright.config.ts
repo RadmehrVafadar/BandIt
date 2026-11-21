@@ -7,7 +7,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:4183',
     launchOptions: {
-      executablePath: process.env.POCKET_BAND_CHROME,
+      executablePath: process.env.BANDIT_CHROME ?? process.env.POCKET_BAND_CHROME,
     },
   },
   webServer: {

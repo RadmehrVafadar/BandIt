@@ -1,6 +1,6 @@
-# Pocket Band
+# BandIt
 
-Pocket Band turns sketches of everyday objects into a beat that plays every time they hit the floor.
+BandIt turns sketches of everyday objects into a beat that plays every time they hit the floor.
 
 ## Features
 
@@ -44,12 +44,12 @@ Each recognized label uses one of six rhythmic parts.
 The strip shows up to eight illustrated guesses in ranked order and scrolls horizontally on smaller screens.
 Picking an illustration assigns its sound to your freehand drawing.
 Layers that share a sound role are balanced together, and soloing restores the selected layer's full level.
-Pocket Band saves the original sketches, positions, and sounds in IndexedDB for the current browser profile and origin.
+BandIt saves the original sketches, positions, and sounds in IndexedDB for the current browser profile and origin.
 Older recorded instruments already onstage still use their images and recordings.
 You can bring other previously saved instruments back from **Saved objects**.
 
 Most suggestion drawings come from the [AutoDraw artists](https://www.autodraw.com/artists), with the source stencil credited inside each SVG.
-Pocket Band supplies the church, face, knife, lighter, rifle, and zigzag drawings.
+BandIt supplies the church, face, knife, lighter, rifle, and zigzag drawings.
 The layered beat is inspired by [Incredibox](https://www.incredibox.com/demo/).
 
 ## Verification
@@ -64,6 +64,6 @@ npm run build
 ```
 
 The browser tests exercise mouse and touch drawing, sound timing, solo playback, pause and resume, persistence, and reduced motion.
-Set `POCKET_BAND_CHROME` to use an existing Chrome or Chromium executable.
+Set `BANDIT_CHROME` to use an existing Chrome or Chromium executable.
 For a local demo of the built app with live generation, run `npm run build` followed by `npm run preview`.
 Static hosting serves bundled demo clips and built-in voices; live generation requires the sound endpoint on a server with the API key.
