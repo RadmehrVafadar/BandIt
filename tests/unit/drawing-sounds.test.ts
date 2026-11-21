@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import labels from '../../src/doodle-labels.json' with { type: 'json' };
 import { createObject, doodleSuggestion } from '../../src/objects.ts';
 
 function render(label: string) {
@@ -9,7 +9,6 @@ function render(label: string) {
 }
 
 test('every model label produces a distinct, audible, mix-safe sample', () => {
-  const labels = readFileSync(new URL('../../public/doodlenet/class_names.txt', import.meta.url), 'utf8').trim().split(/\r?\n/);
   const seen = new Map<string, string>();
   for (const label of labels) {
     const { samples, rate } = render(label);

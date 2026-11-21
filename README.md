@@ -70,4 +70,5 @@ For a local demo of the built app with live generation, run `npm run build` foll
 Static hosting serves bundled demo clips and built-in voices; live generation requires the sound endpoint on a server with the API key.
 
 On Vercel, set `ELEVENLABS_API_KEY` in the Production environment and redeploy to enable live generation at `/api/sounds`.
+The function and recognition worker import the same bundled object labels.
 The function caches clips in temporary storage on each warm instance.

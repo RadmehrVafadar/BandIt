@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
+import labels from '../../src/doodle-labels.json' with { type: 'json' };
 import { doodleSuggestion, drawingFile, objectSample, objects } from '../../src/objects.ts';
 import { rankSketch } from '../../src/sketch.ts';
 import type { ObjectKind } from '../../src/sketch.ts';
@@ -22,7 +23,6 @@ const sketches: Record<string, [ObjectKind, number[][][]]> = {
 };
 
 test('each classifier and basic suggestion has its own local illustration', () => {
-  const labels = readFileSync(new URL('../../public/doodlenet/class_names.txt', import.meta.url), 'utf8').trim().split(/\r?\n/);
   const names = new Set([...labels.map(label => doodleSuggestion(label).name), ...Object.values(objects).map(o => o.name)]);
   const files = [...names].map(drawingFile);
   assert.equal(new Set(files).size, names.size);
