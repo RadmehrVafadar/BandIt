@@ -3,8 +3,7 @@ import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import labels from '../../src/doodle-labels.json' with { type: 'json' };
 import { doodleSuggestion, drawingFile, objectSample, objects } from '../../src/objects.ts';
-import { rankSketch } from '../../src/sketch.ts';
-import type { ObjectKind } from '../../src/sketch.ts';
+import { templateScores, type ObjectKind } from '../../src/sketch.ts';
 
 const sketches: Record<string, [ObjectKind, number[][][]]> = {
   singleKey: ['keys', [[[0, 2], [4, 0], [8, 1], [10, 6], [8, 9], [3, 9], [0, 6], [0, 2]],
@@ -34,8 +33,11 @@ for (const [shape, [kind, strokes]] of Object.entries(sketches)) {
   test('recognize ' + shape + ' across translations, scales, and stroke directions', () => {
     for (const scale of [1, 6]) {
       const drawing = strokes.map(stroke => stroke.map(([x, y]) => ({ x: 32 + x * scale, y: 78 + y * scale })));
-      assert.equal(rankSketch(drawing)[0], kind);
-      assert.equal(rankSketch(drawing.reverse().map(stroke => stroke.reverse()))[0], kind);
+      const reversed = drawing.toReversed().map(stroke => stroke.toReversed());
+      for (const input of [drawing, reversed]) {
+        const [[bestMatch]] = templateScores(input);
+        assert.equal(bestMatch, kind);
+      }
     }
   });
 }

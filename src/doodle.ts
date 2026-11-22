@@ -1,7 +1,20 @@
-import { bounds } from './sketch.ts';
-import type { Stroke } from './sketch.ts';
+import type { Position } from './music.ts';
 
+export type Stroke = Position[];
 export const suggestionLimit = 8;
+
+export function bounds(strokes: Stroke[]) {
+  const box = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
+  for (const stroke of strokes) {
+    for (const { x, y } of stroke) {
+      box.left = Math.min(box.left, x);
+      box.top = Math.min(box.top, y);
+      box.right = Math.max(box.right, x);
+      box.bottom = Math.max(box.bottom, y);
+    }
+  }
+  return box;
+}
 
 // DoodleNet expects a 28px grayscale bitmap with bright ink on black.
 export function doodlePixels(strokes: Stroke[]) {

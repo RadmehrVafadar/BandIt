@@ -3,7 +3,8 @@ import type { Page } from '@playwright/test';
 import { createBeatboxPack } from '../../src/beatbox.ts';
 import { drawingSample } from '../../src/drawing-sounds.ts';
 import { hitDelay, loopScore } from '../../src/loop-score.ts';
-import { STEP_SECONDS } from '../../src/music.ts';
+import { BAR_STEPS, STEP_SECONDS } from '../../src/music.ts';
+import { objectSample } from '../../src/objects.ts';
 import { mockAuth0, testAccessToken } from '../fixtures/auth0.ts';
 
 const key = [
@@ -225,6 +226,7 @@ test('draw keys, hear a floor hit, and layer a drum at the next bar', async ({ p
 test('desktop keeps adding slots and restores the expanded mix', async ({ page }) => {
   const notes = await trackNotes(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/');
   const mix = page.getByRole('region', { name: 'Object slots' });
   const slot = (number: number) => mix.getByRole('button', { name: 'Add an object to slot ' + number });
@@ -237,6 +239,7 @@ test('desktop keeps adding slots and restores the expanded mix', async ({ page }
   }
   await expect(slot(5)).toBeEnabled();
   await expect(slot(6)).toHaveCount(0);
+  const fiveSlotBounds = (await mix.boundingBox())!;
   await draw(page, bell, 120, 190);
   await page.getByRole('button', { name: 'Use Bell sound' }).click();
   await expect(active).toHaveCount(5);
@@ -244,16 +247,24 @@ test('desktop keeps adding slots and restores the expanded mix', async ({ page }
   await expect(fifth).toHaveAttribute('data-part', /.+/);
 
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
-  await page.setViewportSize({ width: 680, height: 820 });
   await slot(6).click();
   await page.getByRole('button', { name: 'Add Lip Kick', exact: true }).click();
+  await expect(slot(7)).toBeEnabled();
+  expect(await mix.evaluate(element => element.scrollWidth - element.clientWidth)).toBe(0);
+  const sevenSlotBounds = (await mix.boundingBox())!;
+  expect(sevenSlotBounds.x).toBeLessThan(fiveSlotBounds.x);
+  expect(sevenSlotBounds.x + sevenSlotBounds.width).toBeGreaterThan(fiveSlotBounds.x + fiveSlotBounds.width);
+  await expect(mix).toHaveCSS('scrollbar-width', 'none');
+
+  await page.setViewportSize({ width: 680, height: 820 });
   const kickActor = page.locator('[data-performer="Lip Kick"]');
   await expect.poll(async () => {
     const box = (await kickActor.boundingBox())!;
     return Math.round((box.x + box.width / 2) / 680 * 1000);
   }).toBe(Math.round(5.5 / 6 * 1000));
+  expect(await mix.evaluate(element => element.scrollWidth - element.clientWidth)).toBeGreaterThan(0);
+  await slot(7).focus();
   await expect(slot(7)).toBeInViewport({ ratio: 1 });
-  await expect(slot(7)).toBeEnabled();
   await expect(slot(8)).toHaveCount(0);
 
   await page.reload();
@@ -646,6 +657,45 @@ async function trackNotes(page: Page) {
   });
   return () => page.evaluate(() => (window as unknown as { notes: Hit[] }).notes);
 }
+
+test('a tapped bar repeats on the same grid when a second instrument joins and after reload', async ({ page }) => {
+  const notes = await trackNotes(page);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await draw(page, bell, 200, 160);
+  await page.getByRole('button', { name: 'Use Bell sound' }).click();
+  await page.getByRole('button', { name: 'Loop my rhythm' }).click();
+  const pad = page.getByRole('button', { name: 'Tap Bell' });
+  const sample = objectSample('bell');
+  const bells = async () => (await notes()).filter(note => note.duration === sample.samples.length / sample.rate).map(note => note.at);
+  const before = (await bells()).length;
+  await pad.click();
+  await page.waitForTimeout(440);
+  await pad.click();
+  const [first, second] = (await bells()).slice(before);
+  const spacing = Math.round((second - first) / STEP_SECONDS) * STEP_SECONDS;
+  expect(spacing).toBeGreaterThan(0);
+  const bar = BAR_STEPS * STEP_SECONDS;
+  await expect.poll(async () => (await bells()).length).toBeGreaterThanOrEqual(before + 4);
+  await page.getByRole('button', { name: 'Add an object to slot 2' }).click();
+  await page.getByRole('button', { name: 'Add Pf Snare' }).click();
+  await expect(page.locator('[data-performer="Pf Snare"]')).toHaveAttribute('data-active', 'true');
+  await expect.poll(async () => (await bells()).length).toBeGreaterThanOrEqual(before + 6);
+  const repeats = (await bells()).slice(before + 2, before + 6);
+  [bar, bar + spacing, 2 * bar, 2 * bar + spacing].forEach((offset, index) => {
+    expect(repeats[index] - first).toBeCloseTo(offset, 4);
+  });
+  const snare = createBeatboxPack('/')[1].sample;
+  await expect.poll(async () => (await notes()).some(note => note.duration === snare.samples.length / snare.rate)).toBe(true);
+  expect((await notes()).some(note => note.duration === 10)).toBe(false);
+
+  await page.reload();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect.poll(async () => (await bells()).length).toBeGreaterThanOrEqual(3);
+  const restored = await bells();
+  expect(restored[1] - restored[0]).toBeCloseTo(spacing, 4);
+  expect(restored[2] - restored[0]).toBeCloseTo(bar, 4);
+});
 
 test('beatbox voices play from fresh slots and restore after reload', async ({ page }) => {
   const notes = await trackNotes(page);

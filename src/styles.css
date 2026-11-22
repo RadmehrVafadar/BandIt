@@ -94,8 +94,8 @@ button:disabled { cursor: default; color: #77777e; }
     var(--bottom-edge) max(var(--edge), env(safe-area-inset-left));
 }
 .workspace:has(.mix[data-expanded=true]) {
-  --dock-height: calc(var(--slot-height) + 20px);
-  --dock-width: 38rem;
+  --dock-height: calc(var(--slot-height) + 10px);
+  --dock-width: max-content;
 }
 .drawing-area { position: absolute; inset: 0; z-index: -1; container-type: size; }
 .drawing-area canvas {
@@ -209,9 +209,30 @@ button:disabled { cursor: default; color: #77777e; }
   top: 0; left: 0; bottom: auto;
   transform: translate3d(clamp(0px, var(--motion-x), 100cqw - 100%), clamp(0px, var(--motion-y), 100cqh - 100%), 0);
 }
-.motion-status {
+.performer[data-recording=true] {
+  top: 50%; left: 50%; bottom: auto; transform: translate(-50%, -50%);
+  width: clamp(72px, 18vmin, 116px); height: clamp(72px, 18vmin, 116px);
+}
+.rhythm-pad {
+  position: absolute; inset: -8px; pointer-events: auto;
+  border: 1px dashed #77777e; border-radius: 14px; background: transparent;
+  touch-action: manipulation;
+}
+.rhythm-controls {
   position: absolute; bottom: var(--bottom-edge); left: 50%; transform: translateX(-50%);
-  width: max-content; max-width: calc(100% - 2 * var(--edge)); pointer-events: none;
+  display: grid; justify-items: center; gap: 8px; pointer-events: none;
+  width: max-content; max-width: calc(100% - 2 * var(--edge)); text-align: center;
+}
+.rhythm-controls[data-recording=true] {
+  top: min(calc(50% + clamp(36px, 9vmin, 58px) + 20px), calc(100% - var(--bottom-edge) - 80px)); bottom: auto;
+}
+.rhythm-actions, .rhythm-cue { display: flex; align-items: center; gap: 8px; }
+.rhythm-actions button { pointer-events: auto; }
+.rhythm-cue { padding: 3px 8px; border-radius: 6px; background: var(--canvas); font-size: .875rem; }
+.beat-marks { display: inline-flex; gap: 4px; }
+.beat-marks i { width: 7px; height: 7px; border: 1px solid var(--muted); border-radius: 50%; }
+.beat-marks i[data-filled=true] { background: var(--ink); }
+.motion-status {
   border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
   padding: 6px 10px; text-align: center; font-size: .875rem;
 }
@@ -251,12 +272,13 @@ button:disabled { cursor: default; color: #77777e; }
 .mix[data-expanded=true] {
   grid-template-columns: none;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(5rem, 1fr);
+  grid-auto-columns: 5rem;
+  width: max-content;
+  max-width: 100%;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-padding-inline: 5px;
-  scrollbar-width: thin;
-  scrollbar-color: #68686e transparent;
+  scrollbar-width: none;
   padding: 5px;
   pointer-events: auto;
 }
@@ -276,6 +298,7 @@ button:disabled { cursor: default; color: #77777e; }
 .slot-art { display: grid; place-items: center; width: 32px; height: 32px; }
 .slot-art img { width: 100%; height: 100%; object-fit: contain; }
 .slot-label { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: .8125rem; line-height: 1.2; font-weight: 650; }
+.slot-label svg { margin-right: 3px; vertical-align: -1px; }
 .slot-label.queued { white-space: normal; color: var(--muted); font-size: .6875rem; font-weight: 450; }
 .solo-icon { position: absolute; top: 9px; left: 9px; color: var(--muted); }
 .slot-button[aria-pressed=true] .solo-icon { color: white; }
