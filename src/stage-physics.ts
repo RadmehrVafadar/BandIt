@@ -1,6 +1,14 @@
 type Slide = { x: number; velocity: number };
 type Body = { slide: Slide; bounds: DOMRect; center: number; minX: number; maxX: number };
 
+const neon = ['#23ffdc', '#ff42bb', '#afff30', '#ab74ff', '#ff9442', '#42caff'];
+
+export function glowOnLanding(actor: HTMLDivElement) {
+  const color = neon[Math.floor(Math.random() * neon.length)];
+  actor.getAnimations().find(animation => animation.id === 'floor-glow')?.cancel();
+  actor.animate([{ color }, { color: 'transparent' }], { id: 'floor-glow', duration: 460, easing: 'ease-out' });
+}
+
 function separate(left: Body, right: Body) {
   if (left.bounds.bottom <= right.bounds.top || right.bounds.bottom <= left.bounds.top) return;
   const overlap = (left.bounds.width + right.bounds.width) / 2
@@ -24,7 +32,7 @@ export function createStagePhysics() {
   const slides = new WeakMap<HTMLDivElement, Slide>();
   let previousTime = 0;
 
-  return (actors: HTMLDivElement[], time: number, reducedMotion: boolean) => {
+  return (actors: HTMLDivElement[], rebounds: HTMLDivElement[], time: number, reducedMotion: boolean) => {
     const elapsed = Math.min(1 / 30, Math.max(0, time - previousTime));
     previousTime = time;
     if (reducedMotion) {
@@ -33,7 +41,7 @@ export function createStagePhysics() {
       }
       return;
     }
-    if (actors.length < 2 && !actors.some(actor => slides.has(actor))) return;
+    if (actors.length < 2 && !actors.some(actor => slides.has(actor) || rebounds.includes(actor))) return;
 
     const stage = actors[0].parentElement!.getBoundingClientRect();
     const bodies = actors.map(actor => {
@@ -43,11 +51,19 @@ export function createStagePhysics() {
       const minX = stage.left - bounds.left + slide.x;
       const maxX = stage.right - bounds.right + slide.x;
 
-      // A damped spring brings each performer back to the center of its sketch.
+      // A damped spring brings the performer back toward its spawn position.
       slide.velocity = (slide.velocity - 30 * slide.x * elapsed) * Math.exp(-8 * elapsed);
       const nextX = slide.x + slide.velocity * elapsed;
       slide.x = Math.max(minX, Math.min(maxX, nextX));
       if (nextX !== slide.x) slide.velocity = 0;
+      if (rebounds.includes(actor)) {
+        const reach = Math.min(64, stage.width * .1);
+        const left = Math.min(reach, slide.x - minX);
+        const right = Math.min(reach, maxX - slide.x);
+        // Favor open space at the edges and vary the sideways speed on each takeoff.
+        const throwDistance = Math.random() * (left + right) < left ? -left : right;
+        slide.velocity = throwDistance * (8 + 5 * Math.random());
+      }
       return { actor, slide, bounds, center, minX, maxX };
     });
 

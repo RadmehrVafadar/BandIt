@@ -112,6 +112,26 @@ test('a usable sensor automatically enables motion and rotates its axes with the
   expect(await playedSounds(page)).toHaveLength(1);
 });
 
+test('phone floor impacts glow once while a side hit only plays the sample', async ({ page }) => {
+  test.skip(!await page.evaluate(() => 'AudioContext' in window), 'This browser build has no Web Audio output.');
+  await openPhone(page, 'granted');
+  const kick = await addVoice(page);
+  await tilt(page, 0, 0);
+  await expect(kick).toHaveAttribute('data-loose', '');
+  const tint = () => kick.evaluate(actor => getComputedStyle(actor, '::after').backgroundColor);
+  const resting = await tint();
+  await tilt(page, 9.8, 0);
+  await expect.poll(() => playedSounds(page)).toHaveLength(1);
+  expect(await tint()).toBe(resting);
+  await tilt(page, 0, -9.8);
+  await expect.poll(tint, { intervals: [16] }).not.toBe(resting);
+  expect(await playedSounds(page)).toHaveLength(2);
+  const box = (await kick.boundingBox())!;
+  expect(Math.round(box.y + box.height)).toBe(844);
+  await expect.poll(tint).toBe(resting);
+  expect(await playedSounds(page)).toHaveLength(2);
+});
+
 test('denying motion permission keeps beat playback available', async ({ page }) => {
   await openPhone(page, 'denied');
   const canPlay = await page.evaluate(() => 'AudioContext' in window);

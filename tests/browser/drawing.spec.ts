@@ -237,6 +237,73 @@ test('four distinct sounds fill the stage and removing a layer frees room', asyn
   await expect(page.getByLabel('Draw an object')).toHaveAttribute('data-disabled', 'false', { timeout: 5000 });
 });
 
+test('the four + slots place picked objects left to right across the stage', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 800, height: 600 });
+  await page.goto('/?demo');
+  const largeKey = key.map(stroke => stroke.map(([x, y]) => [x * 4, y * 4]));
+  await draw(page, largeKey, 75, 210);
+  await page.getByRole('button', { name: 'Use Keys sound' }).click();
+  const keys = page.locator('[data-performer="Keys"]');
+  const sketch = (await keys.boundingBox())!;
+  expect(sketch.x + sketch.width / 2).toBeCloseTo(201, 0);
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await page.getByRole('button', { name: 'Remove Keys' }).click();
+
+  const names = ['Doo Vocal', 'Tss Hat', 'Lip Kick', 'Keys'];
+  for (const index of [3, 0, 2, 1]) {
+    await page.getByRole('button', { name: 'Add an object to slot ' + (index + 1) }).click();
+    await page.getByRole('button', { name: 'Add ' + names[index], exact: true }).click();
+  }
+  const centers = () => page.locator('[data-performer]').evaluateAll(actors => actors.map(actor => {
+    const box = actor.getBoundingClientRect();
+    return (box.x + box.width / 2) / innerWidth;
+  }));
+  const lanes = [.125, .375, .625, .875];
+  await expect.poll(centers).toEqual(lanes);
+  const placed = (await keys.boundingBox())!;
+  expect(placed.y + placed.height / 2).toBeCloseTo(sketch.y + sketch.height / 2, 1);
+  await page.reload();
+  await page.setViewportSize({ width: 400, height: 800 });
+  await expect.poll(centers).toEqual(lanes);
+});
+
+test('a beat landing tints the drawing neon and the glow fades on the rebound', async ({ page }) => {
+  await page.goto('/?demo');
+  await page.getByRole('button', { name: 'Add an object to slot 1' }).click();
+  await page.evaluate(() => {
+    let pick = 0;
+    Math.random = () => (pick++ % 2) / 2;
+  });
+  await page.getByRole('button', { name: 'Add Lip Kick' }).click();
+  const actor = page.locator('[data-performer="Lip Kick"]');
+  type Frame = { gap: number; alpha: number; color: string };
+  const frames = await actor.evaluate(element => new Promise<Frame[]>(resolve => {
+    const frames: Frame[] = [];
+    const start = performance.now();
+    function sample() {
+      const ink = getComputedStyle(element, '::after').backgroundColor;
+      const [r, g, b, alpha = 1] = ink.match(/[\d.]+/g)!.map(Number);
+      const gap = innerHeight - element.getBoundingClientRect().bottom;
+      frames.push({ gap, alpha: Math.max(r, g, b) - Math.min(r, g, b) > 90 ? alpha : 0, color: [r, g, b].join(',') });
+      if (performance.now() - start > 2600) resolve(frames);
+      else requestAnimationFrame(sample);
+    }
+    sample();
+  }));
+  const landing = frames.findIndex(frame => frame.gap < 1 && frame.alpha > .9);
+  expect(landing).toBeGreaterThanOrEqual(0);
+  const colors = frames.filter(frame => frame.gap < 1 && frame.alpha > .9).map(frame => frame.color);
+  expect(new Set(colors).size).toBeGreaterThan(1);
+  const rebound = frames.slice(landing + 1);
+  const fading = rebound.findIndex(frame => frame.gap > 15 && frame.alpha > .1 && frame.alpha < .8);
+  expect(fading).toBeGreaterThanOrEqual(0);
+  expect(rebound.slice(fading + 1).some(frame => frame.gap > 15 && frame.alpha === 0)).toBe(true);
+  await expect(actor.locator('img')).toHaveCSS('filter', /drop-shadow/);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(actor.locator('img')).not.toHaveCSS('filter', /drop-shadow/);
+});
+
 test('nearby performers bump sideways without sliding off the stage', async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 600 });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
@@ -256,6 +323,26 @@ test('nearby performers bump sideways without sliding off the stage', async ({ p
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect.poll(async () => (await drumActor.boundingBox())!.x).toBeCloseTo(originalX, 1);
+});
+
+test('a single performer can rebound to either side of its starting slot', async ({ page }) => {
+  await page.setViewportSize({ width: 480, height: 640 });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/?demo');
+  await page.getByRole('button', { name: 'Add an object to slot 2' }).click();
+  await page.evaluate(() => { Math.random = () => .1; });
+  await page.getByRole('button', { name: 'Add Lip Kick' }).click();
+  const actor = page.locator('[data-performer="Lip Kick"]');
+  const slotCenter = 480 * .375;
+  const airborneX = () => actor.evaluate(element => {
+    const box = element.getBoundingClientRect();
+    return innerHeight - box.bottom > 50 ? box.left + box.width / 2 : NaN;
+  });
+  await expect.poll(airborneX, { intervals: [16] }).toBeLessThan(slotCenter - 12);
+  await page.evaluate(() => { Math.random = () => .9; });
+  await expect.poll(airborneX, { intervals: [16] }).toBeGreaterThan(slotCenter + 12);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect.poll(airborneX).toBeCloseTo(slotCenter, 1);
 });
 
 test('four identical bells play distinct parts on the same floor grid', async ({ page }) => {
