@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import type { TestContext } from 'node:test';
+import { withProviderKey } from '../../server/access.ts';
 import { identifyHandler } from '../../server/identify.ts';
 import { objectLabels } from '../../src/object-labels.ts';
 
@@ -20,6 +21,25 @@ async function serve(t: TestContext, provider: typeof fetch, key = 'test-key') {
 function candidate(name: unknown) {
   return Response.json({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({ name }) }] } }] });
 }
+
+test('the public demo uses the supplied Gemini key for recognition and never falls back to the site key', async t => {
+  const provider = t.mock.fn(async (_url: RequestInfo | URL, init?: RequestInit) =>
+    new Headers(init?.headers).get('x-goog-api-key') === 'guest-key' ? candidate('Drum') : new Response(null, { status: 403 }));
+  const server = createServer(withProviderKey(identifyHandler(provider), 'site-key'));
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise<void>(resolve => server.close(() => resolve())));
+  const url = 'http://127.0.0.1:' + (server.address() as AddressInfo).port + '/api/identify';
+  const headers = { ...post.headers, 'x-bandit-demo': '1' };
+  assert.equal((await fetch(url, { ...post, headers })).status, 503);
+  assert.equal(provider.mock.callCount(), 0);
+
+  const allowed = await fetch(url, { ...post, headers: { ...headers, 'x-bandit-api-key': 'guest-key' } });
+  assert.equal(allowed.status, 200);
+  assert.deepEqual(await allowed.json(), { name: 'drum' });
+  assert.equal((await fetch(url, { ...post, headers: { ...headers, 'x-bandit-api-key': 'rejected-key' } })).status, 403);
+  assert.deepEqual(provider.mock.calls.map(call => new Headers(call.arguments[1]?.headers).get('x-goog-api-key')),
+    ['guest-key', 'rejected-key']);
+});
 
 test('sends the submitted JPEG to Gemini and returns the object name', async t => {
   const requests: Request[] = [];

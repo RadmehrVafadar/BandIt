@@ -44,7 +44,7 @@ export function ApiKeysDialog({ keys, welcome, onCancel, onSave }: Props) {
       <label htmlFor="elevenlabs-key">ElevenLabs API key <span>Generated sounds</span></label>
       <input id="elevenlabs-key" name="elevenlabs" type="password" maxLength={512} defaultValue={keys.elevenlabs}
         spellCheck={false} autoComplete="off" />
-      <p className="key-lifetime">Keys are forgotten when you reload or sign out.</p>
+      <p className="key-lifetime">Keys are forgotten when you reload or exit the studio.</p>
       {error && <p role="alert">{error}</p>}
       <button type="submit" className="login-button">{welcome ? 'Open studio' : 'Save keys'} <ArrowRight size={17} /></button>
       <div className="key-actions">

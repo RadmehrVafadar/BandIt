@@ -67,9 +67,11 @@ test('independent servers share one paid generation and a cold server reads the 
     generations++;
     return Buffer.from('engine');
   };
+  assert.equal(await server()('car'), undefined);
+  assert.equal(values.size, 0);
   const clips = await Promise.all([server()('car', generate), server()('car', generate)]);
   assert.deepEqual(clips[0], clips[1]);
-  assert.deepEqual(await server()('car', generate), clips[0]);
+  assert.deepEqual(await server()('car'), clips[0]);
   assert.equal(generations, 1);
 });
 

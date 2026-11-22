@@ -22,6 +22,7 @@ npm run dev
 ```
 
 Open the localhost URL Vite prints and choose **See demo**, or sign in with Google to keep a separate local studio.
+In the demo, use **API keys** to add your own Gemini key for photo recognition or ElevenLabs key for sound generation.
 After sign-in, enter either provider key or select **Skip for now** to use the site's keys.
 See the [login and API key guide](docs/authentication.md) for hosting settings.
 
@@ -36,7 +37,7 @@ Removing objects until one remains returns it to motion playback.
 If motion access is denied or sensor readings are unavailable, the object plays on the beat.
 If an in-app browser waits for a playback gesture, tap **Play** after the object appears.
 
-For shared camera recognition, put `GEMINI_API_KEY` in the project's ignored `.env.local` and restart Vite.
+For shared camera recognition after sign-in, put `GEMINI_API_KEY` in the project's ignored `.env.local` and restart Vite.
 Open an empty **+** slot, choose **Camera**, allow camera access, and select **Take photo**.
 BandIt sends that frame to Gemini and adds the identified object to the slot you chose.
 If Gemini returns an ambiguous label such as “mouse,” you can choose the animal or the computer accessory before adding it.
@@ -45,7 +46,7 @@ Other objects use the photo and a built-in sound.
 A computer mouse keeps its photo and plays a click.
 Camera access requires localhost or HTTPS.
 
-For shared live sounds, put `ELEVENLABS_API_KEY` in the project's ignored `.env.local` and restart Vite.
+For shared live sounds after sign-in, put `ELEVENLABS_API_KEY` in the project's ignored `.env.local` and restart Vite.
 For sound generation, the server sends the selected label to ElevenLabs and requests a short one-shot.
 Keys, Drum, and Cup ship with generated clips in `public/demo-sounds/`.
 Run `npm run sounds:demo` before rehearsal to fill any missing clips.

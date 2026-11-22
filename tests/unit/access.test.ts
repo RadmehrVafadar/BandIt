@@ -26,13 +26,17 @@ test('incomplete Auth0 settings lock signed-in requests and leave the public dem
   assert.equal(authConfig({ ...testAuthEnv, VITE_AUTH0_AUDIENCE: testAuthEnv.VITE_AUTH0_CLIENT_ID }), undefined);
   assert.ok(authConfig({ ...testAuthEnv, VITE_AUTH0_OWNER_SUB: '' }));
   assert.equal(authConfig({})?.audience, 'urn:bandit:api');
+  const chosen: (string | undefined)[] = [];
   const url = await listen(t, withProviderKey(async (_req, res, { key }) => {
-    assert.equal(key, 'demo-test-key');
+    chosen.push(key);
     res.writeHead(204).end();
-  }, 'demo-test-key', { VITE_AUTH0_DOMAIN: '' }));
+  }, 'site-key', { VITE_AUTH0_DOMAIN: '' }));
   const response = await fetch(url, { headers: { authorization: 'Bearer token' } });
   assert.equal(response.status, 503);
   assert.equal((await fetch(url, { headers: { 'x-bandit-demo': '1' } })).status, 204);
+  assert.deepEqual(chosen, [undefined]);
+  assert.equal((await fetch(url, { headers: { 'x-bandit-demo': '1', 'x-bandit-api-key': 'demo-test-key' } })).status, 204);
+  assert.deepEqual(chosen, [undefined, 'demo-test-key']);
 });
 
 test('both Vercel endpoints validate Google user tokens and accept explicitly marked demo requests', async t => {
@@ -93,13 +97,18 @@ test('both Vercel endpoints validate Google user tokens and accept explicitly ma
   const sub = 'google-oauth2|other-user';
   const authorization = 'Bearer ' + await sign({ sub });
   for (const headers of [new Headers({ authorization, 'x-bandit-api-key': 'personal-key' }),
-    new Headers({ authorization }), new Headers({ 'x-bandit-demo': '1' })]) {
+    new Headers({ authorization }), new Headers({ 'x-bandit-demo': '1' }),
+    new Headers({ 'x-bandit-demo': '1', 'x-bandit-api-key': 'demo-test-key' })]) {
     assert.equal((await request(verified, { headers })).status, 204);
   }
-  assert.deepEqual(chosen, [{ key: 'personal-key', member: sub }, { key: 'site-key', member: undefined }, { key: 'site-key', member: undefined }]);
+  assert.deepEqual(chosen, [
+    { key: 'personal-key', cacheScope: sub }, { key: 'site-key', cacheScope: undefined },
+    { key: undefined, cacheScope: undefined }, { key: 'demo-test-key', cacheScope: 'demo:demo-test-key' },
+  ]);
   for (const headers of [new Headers({ authorization, 'x-bandit-api-key': 'invalid key' }),
-    new Headers({ authorization, 'x-bandit-demo': '1' }), new Headers({ 'x-bandit-demo': '1', 'x-bandit-api-key': 'unexpected' })]) {
+    new Headers({ authorization, 'x-bandit-demo': '1' }), new Headers({ 'x-bandit-demo': '1', 'x-bandit-api-key': 'invalid key' })]) {
     assert.equal((await request(verified, { headers })).status, 400);
   }
-  assert.equal(chosen.length, 3);
+  assert.equal((await request(verified, { headers: { 'x-bandit-api-key': 'demo-test-key' } })).status, 401);
+  assert.equal(chosen.length, 4);
 });

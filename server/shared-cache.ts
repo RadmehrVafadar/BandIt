@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 
-export type SharedSoundCache = (id: string, generate: () => Promise<Buffer>) => Promise<Buffer>;
+export type SharedSoundCache = (id: string, generate?: () => Promise<Buffer>) => Promise<Buffer | undefined>;
 
 // A single Redis key holds either a short generation lease or the finished MP3.
 export function redisSoundCache(url: string, token: string, request = fetch): SharedSoundCache {
@@ -22,6 +22,7 @@ export function redisSoundCache(url: string, token: string, request = fetch): Sh
     do {
       const value = await command('GET', key);
       if (value && !value.startsWith('pending:')) return Buffer.from(value, 'base64');
+      if (!generate) return;
       if (!value && await command('SET', key, owner, 'NX', 'EX', '60')) {
         const audio = await generate().catch(async error => {
           await command('EVAL', "if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) end", '1', key, owner);

@@ -2,7 +2,7 @@ import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http
 import { createRemoteJWKSet, errors, jwtVerify } from 'jose';
 import { authConfig, isGoogleSubject, isProviderKey } from '../auth/config.ts';
 
-export type ProviderAccess = { key: string | undefined; member?: string };
+export type ProviderAccess = { key: string | undefined; cacheScope?: string };
 type ProviderHandler = (req: IncomingMessage, res: ServerResponse, access: ProviderAccess) => Promise<void>;
 
 export function withProviderKey(handler: ProviderHandler, sharedKey: string | undefined,
@@ -17,7 +17,7 @@ export function withProviderKey(handler: ProviderHandler, sharedKey: string | un
     const demo = req.headers['x-bandit-demo'] === '1';
     let subject: string | undefined;
     if (demo) {
-      if (req.headers.authorization !== undefined || supplied !== undefined) return void res.writeHead(400).end();
+      if (req.headers.authorization !== undefined) return void res.writeHead(400).end();
     } else {
       if (!config || !keys) return void res.writeHead(503).end();
       const token = /^Bearer ([^\s]+)$/i.exec(req.headers.authorization ?? '')?.[1];
@@ -40,7 +40,8 @@ export function withProviderKey(handler: ProviderHandler, sharedKey: string | un
     if (supplied !== undefined && !isProviderKey(supplied)) {
       return void res.writeHead(400).end();
     }
-    const key = supplied ?? sharedKey;
-    return handler(req, res, { key, member: supplied ? subject : undefined });
+    const key = supplied ?? (demo ? undefined : sharedKey);
+    const cacheScope = supplied ? (subject ?? 'demo:' + supplied) : undefined;
+    return handler(req, res, { key, cacheScope });
   };
 }

@@ -5,7 +5,6 @@ const config = authConfig(import.meta.env);
 export type Account = { sub: string; legacyLibrary: boolean };
 export type ProviderKeys = { gemini?: string; elevenlabs?: string };
 export type StudioAccess = { account: Account | null; keys: ProviderKeys };
-export const demoAccess: StudioAccess = { account: null, keys: {} };
 
 export function storageSuffix(account: Account | null) {
   return account?.legacyLibrary ? '' : ':' + (account?.sub ?? 'demo');
@@ -44,10 +43,10 @@ export async function fetchStudioApi(access: StudioAccess, path: 'identify' | `s
     const token = await auth.getTokenSilently();
     if ((await auth.getUser())?.sub !== access.account.sub) throw new Error('Sign in again to use this account.');
     headers.set('Authorization', 'Bearer ' + token);
-    const key = access.keys[path === 'identify' ? 'gemini' : 'elevenlabs'];
-    if (key) headers.set('X-BandIt-API-Key', key);
   } else {
     headers.set('X-BandIt-Demo', '1');
   }
+  const key = access.keys[path === 'identify' ? 'gemini' : 'elevenlabs'];
+  if (key) headers.set('X-BandIt-API-Key', key);
   return fetch(studioUrl + 'api/' + path, { ...init, headers, redirect: 'error', cache: 'no-store' });
 }
