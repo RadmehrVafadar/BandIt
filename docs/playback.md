@@ -11,6 +11,7 @@ BandIt plays each object's own sample on a phone motion impact or schedules its 
 
 The **+** slots place objects at the centers of equal columns across the stage, from left to right.
 The columns adjust as desktop slots are added or removed.
+The desktop tray expands from the center and scrolls horizontally without a visible scrollbar when the row runs out of space.
 A fresh drawing starts where you drew it.
 Picking it again through **+** moves it to that slot's column and saves the new placement.
 Large saved drawings scale down to fit their column.

@@ -94,8 +94,8 @@ button:disabled { cursor: default; color: #77777e; }
     var(--bottom-edge) max(var(--edge), env(safe-area-inset-left));
 }
 .workspace:has(.mix[data-expanded=true]) {
-  --dock-height: calc(var(--slot-height) + 20px);
-  --dock-width: 38rem;
+  --dock-height: calc(var(--slot-height) + 10px);
+  --dock-width: max-content;
 }
 .drawing-area { position: absolute; inset: 0; z-index: -1; container-type: size; }
 .drawing-area canvas {
@@ -251,12 +251,13 @@ button:disabled { cursor: default; color: #77777e; }
 .mix[data-expanded=true] {
   grid-template-columns: none;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(5rem, 1fr);
+  grid-auto-columns: 5rem;
+  width: max-content;
+  max-width: 100%;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-padding-inline: 5px;
-  scrollbar-width: thin;
-  scrollbar-color: #68686e transparent;
+  scrollbar-width: none;
   padding: 5px;
   pointer-events: auto;
 }
