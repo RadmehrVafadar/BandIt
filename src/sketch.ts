@@ -1,6 +1,5 @@
+import { bounds, type Stroke } from './doodle.ts';
 import type { Position } from './music.ts';
-
-export type Stroke = Position[];
 
 function example(...lines: string[]): Stroke[] {
   return lines.map(line => line.split(' ').map(pair => {
@@ -51,19 +50,6 @@ const templates = {
 
 export type ObjectKind = keyof typeof templates;
 
-export function bounds(strokes: Stroke[]) {
-  const box = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
-  for (const stroke of strokes) {
-    for (const { x, y } of stroke) {
-      box.left = Math.min(box.left, x);
-      box.top = Math.min(box.top, y);
-      box.right = Math.max(box.right, x);
-      box.bottom = Math.max(box.bottom, y);
-    }
-  }
-  return box;
-}
-
 function points(strokes: Stroke[]) {
   const { left, top, right, bottom } = bounds(strokes);
   const width = right - left;
@@ -113,8 +99,4 @@ export function templateScores(strokes: Stroke[]) {
     scores.set(reference.kind, Math.min(scores.get(reference.kind) ?? Infinity, cost));
   }
   return [...scores].sort((a, b) => a[1] - b[1]);
-}
-
-export function rankSketch(strokes: Stroke[]): ObjectKind[] {
-  return templateScores(strokes).map(([kind]) => kind);
 }

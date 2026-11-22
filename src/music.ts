@@ -1,6 +1,6 @@
 import type { ObjectKind } from './sketch.ts';
 
-export const BPM = 96;
+const BPM = 96;
 export const BAR_STEPS = 16;
 export const STEP_SECONDS = 60 / BPM / 4;
 
