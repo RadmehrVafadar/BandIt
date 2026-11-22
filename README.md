@@ -1,16 +1,18 @@
 # BandIt
 
-BandIt turns sketches and photos into instruments you can play together in your browser.
+BandIt is a browser music studio where a sketched keyring jingles on the offbeats and a cup taps out the backbeat.
 
-[Play the demo](https://www.bandit.select/?demo) · [Hear the ten-second Tabletop Bingo mix](docs/samples/tabletop-bingo.wav)
+![BandIt playing Tabletop Bingo, with a pink drum kit and a blue bell glowing beside a key and a cup on the black stage.](docs/images/tabletop-bingo.png)
+
+[Play BandIt](https://www.bandit.select/?demo) · [Listen to Tabletop Bingo (10 seconds)](docs/samples/tabletop-bingo.wav)
 
 ## Features
 
-- Draw with a mouse, finger, or pen and choose from illustrated sound suggestions.
-- Add a photo, a saved object, or one of four beatbox voices to an empty slot.
-- Shake a phone to play one object on impact, or add a second object to start a four-bar groove.
-- Tap an object's headphones to toggle solo, or hold them to listen until you release.
-- Return to your saved instruments and lineup in the same browser.
+- Sketch in white ink with a mouse, finger, or pen, then pick a matching illustration.
+- Shake your phone to hear a lone drawing play each time it hits an edge.
+- Add a second instrument to start a four-bar groove at 96 BPM.
+- Fill a **+** slot with a photo, a saved drawing, or a beatbox voice like **Lip Kick**.
+- Tap the headphones to solo a part, or hold them for a quick listen.
 
 ## Quick start
 
@@ -21,13 +23,13 @@ npm ci
 npm run dev
 ```
 
-Open the local URL Vite prints and choose **See demo**.
-Draw a key, choose **Keys**, then add **Drum** to hear the two parts together.
-The bundled instruments play without provider keys.
+Choose **See demo** at the local URL Vite prints.
+Draw a key, then choose **Keys**.
+Repeat with a drum, cup, and bell to play Tabletop Bingo without API keys.
 
 ## Docs
 
-- [Object recognition](docs/recognition.md) covers sketch suggestions, photos, and illustration credits.
-- [Beat playback](docs/playback.md) explains phone motion, the four-bar score, and how to rebuild the loops.
-- [Object sounds](docs/sounds.md) covers recordings, generated clips, and caching.
-- [Sign-in and the public demo](docs/authentication.md) explains local libraries, provider keys, and hosting.
+- [How sketches and photos become instruments](docs/recognition.md)
+- [The four-bar score and phone motion](docs/playback.md)
+- [Where the sounds come from](docs/sounds.md)
+- [Saved mixes, sign-in, and API keys](docs/authentication.md)
