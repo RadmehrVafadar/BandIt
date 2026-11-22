@@ -9,6 +9,15 @@ BandIt plays each object's own sample on a phone motion impact or schedules its 
 3. The mixer reuses an audio buffer for each sample and gives every playing source its own gain so solo changes also affect sounds already in progress.
 4. The animation reads the audio output timestamp and displays the lineup and hits for the step that has reached the speakers.
 
+The four **+** slots place objects at the centers of four equal columns across the stage, from left to right.
+A fresh drawing starts where you drew it.
+Picking it again through **+** moves it to that slot's column and saves the new placement.
+Large saved drawings scale down to fit their column.
+
+Each floor landing gives the object a random neon color and a soft glow.
+As the object rises, the glow fades and its artwork returns to white.
+Reduced Motion uses a softer tint on the stationary performer during beat playback.
+
 A lone object plays its sample on its assigned rhythm.
 In a band, the headphones isolate that same sample and mute all backing, including any backing already playing.
 On browsers with the Audio Session API, the mixer requests media playback when the user starts audio.
@@ -20,6 +29,7 @@ A steady tilt accelerates it across the screen, while a firm shake sends it towa
 Phone playback uses a fixed gravity of 13% and shake sensitivity of 5%.
 The stage keeps the strongest shake between animation frames, including a shake through the face of the phone.
 A moving object plays its own sample when it reaches an edge and stays quiet while resting there.
+Hitting the bottom edge also triggers the landing glow.
 Adding a second object starts the beat, and returning to one object restores motion playback.
 For a saved band, the permission prompt waits until one playing object needs the sensor.
 Pausing freezes movement and sound and discards shakes made while paused.

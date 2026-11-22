@@ -77,7 +77,7 @@ export function objectSample(kind: ObjectKind): Sample {
   return { samples, rate };
 }
 
-export function createObject({ name, kind, label }: Suggestion, position: Position): Instrument {
+export function createObject({ name, kind, label }: Suggestion, position?: Position): Instrument {
   const sample = label ? drawingSample(label) : objectSample(kind);
   return { id: crypto.randomUUID(), kind, name, role: objects[kind].role, position, sample };
 }

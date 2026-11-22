@@ -130,7 +130,7 @@ export function createLooseStage() {
       return true;
     },
     clearShake,
-    move(actors: Map<string, HTMLDivElement>, elapsed: number, impact: (id: string) => void) {
+    move(actors: Map<string, HTMLDivElement>, elapsed: number, impact: (id: string, hitFloor: boolean) => void) {
       const launch = pending;
       pending = undefined;
       const stage = actors.values().next().value?.parentElement?.getBoundingClientRect();
@@ -164,7 +164,7 @@ export function createLooseStage() {
         const hitY = advanceLooseAxis(body.y, body.movingVertically ? tilt.y + downwardPull : 0, stage.height - box.height, elapsed);
         actor.style.setProperty('--motion-x', body.x.position + 'px');
         actor.style.setProperty('--motion-y', body.y.position + 'px');
-        if (hitX || hitY) impact(id);
+        if (hitX || hitY) impact(id, hitY && body.y.wall === 1);
       }
     },
     reset(actors: Map<string, HTMLDivElement>) {

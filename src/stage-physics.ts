@@ -1,6 +1,14 @@
 type Slide = { x: number; velocity: number };
 type Body = { slide: Slide; bounds: DOMRect; center: number; minX: number; maxX: number };
 
+const neon = ['#23ffdc', '#ff42bb', '#afff30', '#ab74ff', '#ff9442', '#42caff'];
+
+export function glowOnLanding(actor: HTMLDivElement) {
+  const color = neon[Math.floor(Math.random() * neon.length)];
+  actor.getAnimations().find(animation => animation.id === 'floor-glow')?.cancel();
+  actor.animate([{ color }, { color: 'transparent' }], { id: 'floor-glow', duration: 460, easing: 'ease-out' });
+}
+
 function separate(left: Body, right: Body) {
   if (left.bounds.bottom <= right.bounds.top || right.bounds.bottom <= left.bounds.top) return;
   const overlap = (left.bounds.width + right.bounds.width) / 2
