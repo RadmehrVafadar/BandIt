@@ -230,7 +230,7 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
     if (cameraSlot === null) return false;
     const label = objectLabels.get(name);
     const suggestion = doodleSuggestion(label ?? name.replaceAll(' ', '_'));
-    const item = createObject(suggestion, { x: (cameraSlot + 0.5) / Math.max(stageSize, cameraSlot + 1), y: 0.36 });
+    const item = createObject(suggestion);
     item.image = label ? import.meta.env.BASE_URL + drawingFile(suggestion.name) : photo;
     if (label && photoMeanings.has(label)) item.name = name[0].toUpperCase() + name.slice(1);
     return prepareObject(item, cameraSlot, label !== undefined);
@@ -270,7 +270,8 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
         </button>}>
         {performers.map((item, index) => {
           if (!item) return null;
-          const position = item.position ?? { x: (index + 0.5) / stageSize, y: 0.36 };
+          const slotWidth = 1 / stageSize;
+          const x = item.position?.x ?? (index + 0.5) * slotWidth;
           const style = {
             '--x': x * 100 + '%', '--y': (item.position?.y ?? 0.36) * 100 + 'cqh',
             '--slot-width': item.position?.x === undefined ? slotWidth * 100 + 'cqw' : undefined,

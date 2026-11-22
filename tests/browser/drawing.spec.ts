@@ -224,6 +224,7 @@ test('draw keys, hear a floor hit, and layer a drum at the next bar', async ({ p
 
 test('desktop keeps adding slots and restores the expanded mix', async ({ page }) => {
   const notes = await trackNotes(page);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
   const mix = page.getByRole('region', { name: 'Object slots' });
   const slot = (number: number) => mix.getByRole('button', { name: 'Add an object to slot ' + number });
@@ -246,6 +247,11 @@ test('desktop keeps adding slots and restores the expanded mix', async ({ page }
   await page.setViewportSize({ width: 680, height: 820 });
   await slot(6).click();
   await page.getByRole('button', { name: 'Add Lip Kick', exact: true }).click();
+  const kickActor = page.locator('[data-performer="Lip Kick"]');
+  await expect.poll(async () => {
+    const box = (await kickActor.boundingBox())!;
+    return Math.round((box.x + box.width / 2) / 680 * 1000);
+  }).toBe(Math.round(5.5 / 6 * 1000));
   await expect(slot(7)).toBeInViewport({ ratio: 1 });
   await expect(slot(7)).toBeEnabled();
   await expect(slot(8)).toHaveCount(0);
