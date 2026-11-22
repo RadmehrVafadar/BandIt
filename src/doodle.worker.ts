@@ -9,7 +9,7 @@ async function load(base: string) {
   await setBackend('cpu');
   const model = await loadLayersModel(base + 'model.json');
   if (labels.length !== model.outputs[0].shape.at(-1)) throw new Error('Invalid labels');
-  return { model, labels };
+  return model;
 }
 
 let ready: ReturnType<typeof load> | undefined;
@@ -18,7 +18,7 @@ self.onmessage = async ({ data }: MessageEvent<{ id: number; pixels: Float32Arra
   const { id, pixels, base } = data;
   latest = id;
   try {
-    const { model, labels } = await (ready ??= load(base));
+    const model = await (ready ??= load(base));
     if (id !== latest) return;
     const scores = tidy(() => {
       const result = model.predict(tensor4d(pixels, [1, 28, 28, 1])) as Tensor;

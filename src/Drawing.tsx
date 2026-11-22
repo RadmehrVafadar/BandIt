@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent, ReactNode } from 'react';
 import { Trash2, Undo2 } from 'lucide-react';
 import type { DrawingSize, Position } from './music.ts';
-import { bounds, templateScores } from './sketch.ts';
-import type { Stroke } from './sketch.ts';
-import { doodlePixels, suggestionLimit } from './doodle.ts';
+import { bounds, doodlePixels, suggestionLimit, type Stroke } from './doodle.ts';
+import { templateScores } from './sketch.ts';
 import { objects, doodleSuggestion, drawingFile } from './objects.ts';
 import type { Suggestion } from './objects.ts';
 
