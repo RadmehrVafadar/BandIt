@@ -6,7 +6,9 @@ import { hoofbeats, horsePluck } from './horse.ts';
 import { chords, hitDelay, loopScore } from './loop-score.ts';
 import type { LoopBank } from './loops.ts';
 import { BAR_STEPS, STEP_SECONDS, PHRASE, bounceHeight, updateQueue } from './music.ts';
-import type { Change, Instrument, Part, Slots } from './music.ts';
+import type { Change, Hit, Instrument, Part, Slots } from './music.ts';
+import { RhythmTake } from './rhythm.ts';
+import type { Rhythms } from './rhythm.ts';
 
 type Frame = { step: number; hits: number[]; slots: Slots };
 type ScheduledFrame = Frame & { ensemble: Ensemble; time: number; applied: Map<number, Change> };
@@ -19,6 +21,7 @@ function setSlot(slots: Slots, index: number, id: string | null) {
 
 export class BeatEngine {
   readonly pending = new Map<number, Change>();
+  recording?: RhythmTake;
   private readonly mixer = new AudioMixer(() => this.ensemble.players.size);
   private readonly accompaniment = renderAccompaniment();
   private ensemble: Ensemble;
@@ -44,6 +47,8 @@ export class BeatEngine {
     private readonly onClock: (step: number, landed: string[]) => void,
     private readonly loops: LoopBank,
     savedParts = new Map<string, Part>(),
+    readonly rhythms: Rhythms = new Map(),
+    private readonly onRhythmChange?: (id: string, hits?: Hit[]) => void,
   ) {
     this.slots = slots;
     this.audibleSlots = slots;
@@ -64,12 +69,24 @@ export class BeatEngine {
   }
 
   height(id: string, step: number, enteredAt: number) {
+    const rhythm = this.rhythms.get(id);
+    if (rhythm) return bounceHeight(rhythm, step, enteredAt, BAR_STEPS);
     const player = this.audibleEnsemble.players.get(id) ?? this.ensemble.players.get(id);
     return player ? bounceHeight(loopScore[player.voice], step, enteredAt) : 1;
   }
 
   get running() {
     return this.playing;
+  }
+
+  get recordingBeat() {
+    return this.recording?.startedAt === undefined ? 0 : Math.min(4, 1 + Math.floor(Math.max(0, this.position) / 4));
+  }
+
+  get rhythmTarget() {
+    if (this.pending.size || this.slots !== this.audibleSlots) return;
+    const players = this.slots.filter(id => id !== null);
+    return players.length === 1 ? players[0] : undefined;
   }
 
   get scheduledSlots() {
@@ -98,9 +115,9 @@ export class BeatEngine {
     if (!this.motionEnabled) this.startClock();
   }
 
-  private startClock() {
+  private startClock(anchor = this.mixer.context.currentTime + 0.055 - this.playhead * STEP_SECONDS) {
     this.resumeStep = this.next;
-    this.anchor = this.mixer.context.currentTime + 0.055 - this.playhead * STEP_SECONDS;
+    this.anchor = anchor;
     this.timer = window.setInterval(this.schedule, 22);
     this.schedule();
     this.draw();
@@ -108,6 +125,10 @@ export class BeatEngine {
 
   pause() {
     if (!this.running) return;
+    if (this.recording) {
+      this.finishRhythm(this.mixer.context.currentTime);
+      this.recording = undefined;
+    }
     this.playing = false;
     clearInterval(this.timer);
     this.timer = undefined;
@@ -127,6 +148,8 @@ export class BeatEngine {
   }
 
   setMotionEnabled(enabled: boolean) {
+    if (this.recording) return;
+    if (enabled && this.arrangement.some(id => id && this.rhythms.has(id))) enabled = false;
     if (enabled === this.motionEnabled) return;
     const wasPlaying = this.running;
     this.pause();
@@ -143,11 +166,60 @@ export class BeatEngine {
   playImpact(id: string) {
     if (!this.motionEnabled || !this.running || !this.slots.includes(id)) return;
     if (this.mixer.solo !== null && this.mixer.solo !== id) return;
-    const sample = this.instruments.get(id)?.sample;
     const context = this.mixer.context;
-    if (!sample || context.state !== 'running') return;
-    this.mixer.fadeOut(id, context.currentTime);
-    this.mixer.play(id, sample, context.currentTime, 1);
+    if (context.state === 'running') this.strike(id, context.currentTime);
+  }
+
+  private strike(id: string, time: number) {
+    const sample = this.instruments.get(id)?.sample;
+    if (sample) this.mixer.strike(id, sample, time);
+  }
+
+  armRhythm(id: string) {
+    if (this.rhythmTarget !== id) return false;
+    this.pause();
+    this.motionEnabled = false;
+    this.recording = new RhythmTake(id);
+    this.playing = true;
+    this.onFrame({ step: this.position, hits: [], slots: this.slots });
+    return true;
+  }
+
+  recordHit() {
+    const take = this.recording;
+    if (!take || this.mixer.context.state !== 'running') return;
+    const time = this.mixer.context.currentTime;
+    const first = take.startedAt === undefined;
+    if (!take.addHit(time)) return;
+    this.strike(take.id, time);
+    if (first) {
+      this.next = 0;
+      this.position = -1;
+      this.playhead = 0;
+      this.startClock(time);
+    }
+    this.onClock(this.playhead, [take.id]);
+  }
+
+  private finishRhythm(time: number) {
+    const take = this.recording;
+    if (!take?.finished(time)) return;
+    this.rhythms.set(take.id, take.hits);
+    this.recording = undefined;
+    this.onRhythmChange?.(take.id, take.hits);
+  }
+
+  cancelRecording() {
+    if (!this.recording) return;
+    this.pause();
+    this.playing = true;
+    this.startClock();
+  }
+
+  clearRhythm(id: string) {
+    if (!this.rhythms.delete(id)) return;
+    if (this.running) this.mixer.fadeOut(id, this.mixer.context.currentTime);
+    this.onRhythmChange?.(id);
   }
 
   private showSlots(slots: Slots) {
@@ -157,6 +229,9 @@ export class BeatEngine {
   }
 
   change(slot: number, id: string | null) {
+    if (this.recording && (!this.recording.hits.length || this.slots[slot] === this.recording.id)) {
+      this.cancelRecording();
+    }
     if (!this.running || this.motionEnabled) {
       this.pending.delete(slot);
       const previous = this.slots[slot];
@@ -186,6 +261,7 @@ export class BeatEngine {
     const { players } = this.ensemble;
     const stemSlice = { offset: phase * STEP_SECONDS, duration, mix: 'band' } as const;
     for (const [id, player] of players) {
+      if (this.rhythms.has(id) || this.recording?.id === id) continue;
       if ('stem' in player && player.stem) this.mixer.play(id, player.stem, time, player.accent ? .62 : 1, stemSlice);
     }
     const { bass, strings } = this.accompaniment[Math.floor(phase / BAR_STEPS)];
@@ -224,6 +300,17 @@ export class BeatEngine {
     const hits: number[] = [];
     for (const [index, id] of this.slots.entries()) {
       if (!id) continue;
+      const take = this.recording?.id === id ? this.recording : undefined;
+      if (take && step < BAR_STEPS) continue;
+      // The scheduler can already be queuing the first replay while the last live hit is still welcome.
+      const rhythm = take?.hits ?? this.rhythms.get(id);
+      if (rhythm) {
+        if (rhythm.some(([at]) => at === step % BAR_STEPS)) {
+          hits.push(index);
+          this.strike(id, time);
+        }
+        continue;
+      }
       const player = this.ensemble.players.get(id);
       if (!player) continue;
       const event = loopScore[player.voice].find(([at]) => at === offset);
@@ -246,6 +333,7 @@ export class BeatEngine {
 
   private schedule = () => {
     const now = this.mixer.context.currentTime;
+    this.finishRhythm(now);
     while (this.anchor + this.next * STEP_SECONDS < now + LOOKAHEAD) {
       const step = this.next++;
       const time = this.anchor + step * STEP_SECONDS;

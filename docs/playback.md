@@ -35,12 +35,26 @@ With motion access, tilting the phone accelerates a single object across the scr
 Phone playback uses a fixed gravity of 13% and shake sensitivity of 5%.
 The stage keeps the strongest shake between animation frames, including a shake through the face of the phone.
 An edge impact plays the object's sample once, and a floor impact also triggers the landing glow.
-Adding a second object starts the beat, and returning to one object restores motion playback.
+Adding a second object starts the beat, and returning to one object restores motion playback unless it has a recorded rhythm.
 For a saved band, the permission prompt waits until one playing object needs the sensor.
 Pausing freezes movement and sound and discards shakes made while paused.
 The beat takes over when motion permission is denied or the browser supplies no usable readings.
 On iPhone, open the studio over HTTPS and grant motion access when prompted.
 Tap **Play** if the browser waits for a playback gesture after the object appears.
+
+### Loop my rhythm
+
+With one object onstage, choose **Loop my rhythm**.
+Tap the object or give the phone a firm shake to start the bar.
+Each strike sounds immediately, and four beat marks show how much of the bar has elapsed.
+The first strike sets the downbeat, and replay snaps each hit to the nearest sixteenth note.
+At 96 BPM the bar lasts 2.5 seconds.
+The object repeats its own sample on that rhythm, including when a second instrument joins on the next bar.
+You can add that instrument while the take is still recording.
+
+The studio saves the rhythm with the object's ID in the current browser.
+With that object alone, choose **Record again** to replace its rhythm or **Clear rhythm** to restore its usual playback.
+Pausing or canceling an unfinished take keeps the previous recording.
 
 ### Pausing between beats
 

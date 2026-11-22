@@ -75,6 +75,7 @@ export class AudioMixer {
     };
     this.sources.set(source, hit);
     source.start(time, offset, duration);
+    return source;
   }
 
   private stop(source: AudioBufferSourceNode, hit: ActiveSource, time: number) {
@@ -93,6 +94,18 @@ export class AudioMixer {
     for (const [source, hit] of this.sources) {
       if (hit.id === id) this.stop(source, hit, time);
     }
+  }
+
+  strike(id: string, sample: Sample, time: number) {
+    let next = Infinity;
+    for (const [source, hit] of this.sources) {
+      if (hit.id !== id) continue;
+      if (hit.startsAt <= time) this.stop(source, hit, time);
+      else next = Math.min(next, hit.startsAt);
+    }
+    // A live strike can land just before a replay that the clock has already scheduled.
+    const source = this.play(id, sample, time, 1);
+    if (Number.isFinite(next)) this.stop(source, this.sources.get(source)!, next);
   }
 
   fadeBacking(time: number) {

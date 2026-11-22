@@ -1,4 +1,5 @@
-import type { Instrument, Part, Slots } from './music.ts';
+import type { Hit, Instrument, Part, Slots } from './music.ts';
+import type { Rhythms } from './rhythm.ts';
 
 export const emptyStage: Slots = [null, null, null, null];
 
@@ -16,12 +17,13 @@ export function openLibrary(name = 'pocket-band'): Promise<IDBDatabase> {
 
 export function readLibrary(
   db: IDBDatabase, builtInIds: Iterable<string> = ['mug', 'pen'],
-): Promise<{ instruments: Instrument[]; slots: Slots; parts?: Map<string, Part> }> {
+): Promise<{ instruments: Instrument[]; slots: Slots; parts?: Map<string, Part>; rhythms?: Rhythms }> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(['instruments', 'stage']);
     const instruments = tx.objectStore('instruments').getAll();
     const stage = tx.objectStore('stage').get('slots');
     const parts = tx.objectStore('stage').get('parts');
+    const rhythms = tx.objectStore('stage').get('rhythms');
     tx.oncomplete = () => {
       const ids = new Set([...builtInIds, ...instruments.result.map(item => item.id)]);
       const saved: Slots = stage.result ?? (instruments.result.length ? ['mug', 'pen', null, null] : emptyStage);
@@ -29,7 +31,8 @@ export function readLibrary(
         const id = saved[index];
         return id && ids.has(id) ? id : null;
       });
-      resolve({ instruments: instruments.result, slots, ...(parts.result && { parts: parts.result }) });
+      resolve({ instruments: instruments.result, slots,
+        ...(parts.result && { parts: parts.result }), ...(rhythms.result && { rhythms: rhythms.result }) });
     };
     tx.onabort = () => reject(tx.error);
   });
@@ -43,5 +46,21 @@ export function storeStage(db: IDBDatabase, slots: Slots, instrument?: Instrumen
     if (instrument) tx.objectStore('instruments').put(instrument);
     if (parts) tx.objectStore('stage').put(parts, 'parts');
     tx.objectStore('stage').put(slots, 'slots');
+  });
+}
+
+export function storeRhythm(db: IDBDatabase, id: string, hits?: Hit[]) {
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('stage', 'readwrite');
+    tx.oncomplete = () => resolve();
+    tx.onabort = () => reject(tx.error);
+    const stage = tx.objectStore('stage');
+    const read = stage.get('rhythms');
+    read.onsuccess = () => {
+      const rhythms: Rhythms = read.result ?? new Map();
+      if (hits) rhythms.set(id, hits);
+      else rhythms.delete(id);
+      stage.put(rhythms, 'rhythms');
+    };
   });
 }
