@@ -4,7 +4,7 @@ BandIt is a browser music studio where a sketched keyring jingles on the offbeat
 
 ![BandIt playing Tabletop Bingo, with a pink drum kit and a blue bell glowing beside a key and a cup on the black stage.](docs/images/tabletop-bingo.png)
 
-[Play BandIt](https://www.bandit.select/?demo) · [Listen to Tabletop Bingo (10 seconds)](docs/samples/tabletop-bingo.wav)
+[Play BandIt](https://www.bandit.select/?demo)
 
 ## Features
 
