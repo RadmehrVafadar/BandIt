@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { AuthenticationError } from '@auth0/auth0-spa-js';
 import { ArrowRight } from 'lucide-react';
-import { auth, demoAccess, demoUrl, restoreSession, studioUrl } from './auth.ts';
+import { auth, demoUrl, restoreSession, studioUrl } from './auth.ts';
 import type { Account, ProviderKeys } from './auth.ts';
 import { ApiKeysDialog } from './ApiKeysDialog.tsx';
 
@@ -9,7 +9,7 @@ const Studio = lazy(() => import('./App.tsx').then(({ App }) => ({ default: App 
 const signOutEvents = typeof BroadcastChannel === 'function' ? new BroadcastChannel(studioUrl + 'sign-out') : undefined;
 const params = new URLSearchParams(window.location.search);
 const demo = params.has('demo');
-const loginCallback = params.has('code') && params.has('state');
+const loginCallback = !demo && params.has('code') && params.has('state');
 const session = demo ? undefined : restoreSession().catch((error: unknown) =>
   error instanceof AuthenticationError && error.error === 'access_denied' ? 'denied' as const : 'error' as const);
 
@@ -43,13 +43,12 @@ export function Login() {
   const [keys, setKeys] = useState<ProviderKeys>({});
   const [keyPrompt, setKeyPrompt] = useState<'welcome' | 'edit' | null>(loginCallback ? 'welcome' : null);
   useEffect(() => {
-    if (!session) return;
-    void session.then(setView);
+    void session?.then(setView);
     const onPageShow = (event: PageTransitionEvent) => {
       if (event.persisted) window.location.reload();
     };
     const onSignOut = () => window.location.replace(studioUrl);
-    signOutEvents?.addEventListener('message', onSignOut);
+    if (session) signOutEvents?.addEventListener('message', onSignOut);
     window.addEventListener('pageshow', onPageShow);
     return () => {
       signOutEvents?.removeEventListener('message', onSignOut);
@@ -80,13 +79,13 @@ export function Login() {
   }
 
   if (demo || typeof view === 'object') {
-    const access = typeof view === 'object' ? { account: view, keys } : demoAccess;
+    const access = { account: typeof view === 'object' ? view : null, keys };
     return <>
       <Suspense fallback={<div className="login-page" role="status">Opening your studio…</div>}>
         <Studio access={access} onExit={demo ? () => window.location.assign(studioUrl) : signOut}
           onEditKeys={() => setKeyPrompt('edit')} />
       </Suspense>
-      {access.account && keyPrompt && <ApiKeysDialog keys={keys} welcome={keyPrompt === 'welcome'}
+      {keyPrompt && <ApiKeysDialog keys={keys} welcome={keyPrompt === 'welcome'}
         onCancel={() => setKeyPrompt(null)} onSave={next => { setKeys(next); setKeyPrompt(null); }} />}
     </>;
   }

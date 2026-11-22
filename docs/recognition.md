@@ -38,7 +38,7 @@ Objects outside the illustrated set keep the photo and use a synthesized sound.
 ## Decisions and gotchas
 
 Keep the label array in model output order because each index names one prediction.
-The camera requires HTTPS or localhost and a Gemini key supplied by the site or signed-in player.
+The camera requires HTTPS or localhost and a personal Gemini key added through **API keys**.
 
 ## Credits
 

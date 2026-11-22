@@ -15,12 +15,12 @@ Reusing generated recordings also avoids paying twice for the same sound.
 - The browser decodes the response before caching it, trims leading silence, and normalizes the level.
 - If a clip is unavailable, the object keeps its built-in voice.
 
-### Shared generation and caching
+### Generation and caching
 
-Set `ELEVENLABS_API_KEY` in the ignored `.env.local` and restart Vite to enable shared generation locally.
-On Vercel, set the variable in the deployment environment and redeploy.
-Site-funded clips share a cache, while clips funded by personal keys are scoped to the signed-in account.
+Add your own ElevenLabs key through **API keys** to generate a clip in either mode.
+The server caches generated clips by object and signed-in account, or by object and a hash of the demo visitor's ElevenLabs key.
 Concurrent requests for the same uncached sound share a generation within that scope.
+Requests without a key can replay clips from the shared cache.
 
 Vite stores generated clips in `.sound-cache/`.
 A Vercel function uses its temporary directory and can share recordings across instances via Upstash Redis.
@@ -29,7 +29,7 @@ For manual configuration, supply the pair `UPSTASH_REDIS_REST_URL` and `UPSTASH_
 
 ### Rehearsal clips
 
-Run `npm run sounds:demo` to fill missing Keys, Drum, and Cup recordings in `public/demo-sounds/`.
+Set `ELEVENLABS_API_KEY` in the ignored `.env.local` and run `npm run sounds:demo` to fill missing Keys, Drum, and Cup recordings in `public/demo-sounds/`.
 The command reuses existing files.
 To record another take, remove just that clip and rerun the command with a provider key.
 

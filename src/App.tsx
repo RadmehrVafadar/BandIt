@@ -274,14 +274,15 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
   const full = firstFree === -1;
   const saved = pickerSlot === null ? [] : instruments.filter(item => !performers.includes(item));
   const voices = pickerSlot === null ? [] : beatbox.filter(item => !performers.includes(item));
+  const cameraNeedsKey = !access.keys.gemini;
 
   return (
     <main className="workspace">
       <header className="studio-account">
         <h1 className="brand"><span className="brand-note" aria-hidden="true" />BandIt</h1>
-        {access.account && <button type="button" className="icon-button" onClick={onEditKeys} aria-label="API keys" title="API keys">
+        <button type="button" className="icon-button" onClick={onEditKeys} aria-label="API keys" title="API keys">
           <KeyRound size={17} aria-hidden="true" />
-        </button>}
+        </button>
         <button type="button" className="icon-button" onClick={onExit} aria-label={exitLabel} title={exitLabel}>
           <LogOut size={18} aria-hidden="true" />
         </button>
@@ -383,8 +384,9 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
             <button type="button" disabled={!isFree(pickerSlot) || !!loadingSound} onClick={() => {
               picker.current?.hidePopover();
               pickerTrigger.current?.focus();
-              setCameraSlot(pickerSlot);
-            }}><Camera size={28} /><span>Camera</span></button>
+              if (cameraNeedsKey) onEditKeys();
+              else setCameraSlot(pickerSlot);
+            }}><Camera size={28} /><span>{cameraNeedsKey ? 'Camera (Gemini key required)' : 'Camera'}</span></button>
             {[{ label: 'Beatbox', items: voices }, { label: 'Saved objects', items: saved }].map(({ label, items }) =>
               items.length > 0 && <fieldset key={label}>
                 <legend>{label}</legend>

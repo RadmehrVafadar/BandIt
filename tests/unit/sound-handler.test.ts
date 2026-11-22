@@ -17,18 +17,35 @@ async function serve(t: TestContext, directory: string) {
   return 'http://127.0.0.1:' + (server.address() as AddressInfo).port + '/api/sounds';
 }
 
-test('the public demo can replay a cached clip when the shared key is unavailable', async t => {
+test('the public demo replays cached clips and generates only with the supplied ElevenLabs key', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'bandit-demo-cache-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   await writeFile(join(directory, 'basketball.mp3'), 'cached bounce');
-  const server = createServer(withProviderKey(soundHandler(directory), undefined));
+  const clientFetch = fetch;
+  const provider = t.mock.method(globalThis, 'fetch', async (_url: RequestInfo | URL, init?: RequestInit) => {
+    const key = new Headers(init?.headers).get('xi-api-key');
+    return new Response('bounce for ' + key, { headers: { 'content-type': 'audio/mpeg' } });
+  });
+  const server = createServer(withProviderKey(soundHandler(directory), { ELEVENLABS_API_KEY: 'site-key' }));
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise<void>(resolve => server.close(() => resolve())));
-  const response = await fetch('http://127.0.0.1:' + (server.address() as AddressInfo).port + '/api/sounds?name=basketball', {
-    method: 'POST', headers: { 'x-bandit-demo': '1', 'x-pocket-band': '1' },
-  });
-  assert.equal(response.status, 200);
-  assert.equal(await response.text(), 'cached bounce');
+  const url = 'http://127.0.0.1:' + (server.address() as AddressInfo).port + '/api/sounds?name=';
+  function request(name: string, key?: string) {
+    const headers = new Headers({ 'x-bandit-demo': '1', 'x-pocket-band': '1' });
+    if (key) headers.set('x-bandit-api-key', key);
+    return clientFetch(url + name, { method: 'POST', headers });
+  }
+  const cached = await request('basketball');
+  assert.equal(cached.status, 200);
+  assert.equal(await cached.text(), 'cached bounce');
+  assert.equal((await request('moon')).status, 503);
+  assert.equal(provider.mock.callCount(), 0);
+
+  const personal = await Promise.all(['guest-one', 'guest-two'].map(key => request('basketball', key)));
+  assert.deepEqual(personal.map(response => response.status), [200, 200]);
+  assert.deepEqual(await Promise.all(personal.map(response => response.text())), ['bounce for guest-one', 'bounce for guest-two']);
+  assert.equal(await (await request('basketball', 'guest-one')).text(), 'bounce for guest-one');
+  assert.equal(provider.mock.callCount(), 2);
 });
 
 test('basketball generates audio when the function starts outside the static site', async t => {

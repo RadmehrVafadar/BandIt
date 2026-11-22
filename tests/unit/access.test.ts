@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import type { RequestListener } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
@@ -26,32 +29,47 @@ test('incomplete Auth0 settings lock signed-in requests and leave the public dem
   assert.equal(authConfig({ ...testAuthEnv, VITE_AUTH0_AUDIENCE: testAuthEnv.VITE_AUTH0_CLIENT_ID }), undefined);
   assert.ok(authConfig({ ...testAuthEnv, VITE_AUTH0_OWNER_SUB: '' }));
   assert.equal(authConfig({})?.audience, 'urn:bandit:api');
+  const chosen: (string | undefined)[] = [];
   const url = await listen(t, withProviderKey(async (_req, res, { key }) => {
-    assert.equal(key, 'demo-test-key');
+    chosen.push(key);
     res.writeHead(204).end();
-  }, 'demo-test-key', { VITE_AUTH0_DOMAIN: '' }));
+  }, { VITE_AUTH0_DOMAIN: '' }));
   const response = await fetch(url, { headers: { authorization: 'Bearer token' } });
   assert.equal(response.status, 503);
   assert.equal((await fetch(url, { headers: { 'x-bandit-demo': '1' } })).status, 204);
+  assert.deepEqual(chosen, [undefined]);
+  assert.equal((await fetch(url, { headers: { 'x-bandit-demo': '1', 'x-bandit-api-key': 'demo-test-key' } })).status, 204);
+  assert.deepEqual(chosen, [undefined, 'demo-test-key']);
 });
 
-test('both Vercel endpoints validate Google user tokens and accept explicitly marked demo requests', async t => {
+test('both Vercel endpoints validate access and use only personal provider keys', async t => {
+  const cacheDirectory = await mkdtemp(join(tmpdir(), 'bandit-endpoints-'));
   const previous = process.env;
-  process.env = { ...previous, ...testAuthEnv, GEMINI_API_KEY: 'shared-gemini', ELEVENLABS_API_KEY: 'shared-eleven' };
-  t.after(() => { process.env = previous; });
-  const { default: identify } = await import('../../api/identify.ts');
-  const { default: sounds } = await import('../../api/sounds.ts');
-  const url = await listen(t, (req, res) => req.url?.startsWith('/api/sounds') ? sounds(req, res) : identify(req, res));
+  process.env = {
+    ...previous, ...testAuthEnv, GEMINI_API_KEY: 'site-gemini', ELEVENLABS_API_KEY: 'site-elevenlabs',
+    TMPDIR: cacheDirectory, TEMP: cacheDirectory, TMP: cacheDirectory,
+    UPSTASH_REDIS_REST_URL: '', UPSTASH_REDIS_REST_TOKEN: '', KV_REST_API_URL: '', KV_REST_API_TOKEN: '',
+  };
+  t.after(async () => {
+    process.env = previous;
+    await rm(cacheDirectory, { recursive: true, force: true });
+  });
 
   const { privateKey, publicKey } = await generateKeyPair('RS256');
   const { privateKey: otherKey } = await generateKeyPair('RS256');
   const jwk = { ...await exportJWK(publicKey), kid: 'test-key', alg: 'RS256' };
   const issuer = 'https://' + testAuthEnv.VITE_AUTH0_DOMAIN + '/';
   const request = fetch;
-  t.mock.method(globalThis, 'fetch', async (input: string) => {
-    assert.equal(input, issuer + '.well-known/jwks.json');
-    return Response.json({ keys: [jwk] });
+  const providerKeys: (string | null)[] = [];
+  t.mock.method(globalThis, 'fetch', async (input: string, init?: RequestInit) => {
+    if (input === issuer + '.well-known/jwks.json') return Response.json({ keys: [jwk] });
+    const headers = new Headers(init?.headers);
+    providerKeys.push(headers.get('x-goog-api-key') ?? headers.get('xi-api-key'));
+    return new Response(null, { status: 403 });
   });
+  const { default: identify } = await import('../../api/identify.ts');
+  const { default: sounds } = await import('../../api/sounds.ts');
+  const url = await listen(t, (req, res) => req.url?.startsWith('/api/sounds') ? sounds(req, res) : identify(req, res));
   const claims = { iss: issuer, aud: testAuthEnv.VITE_AUTH0_AUDIENCE, sub: testAuthEnv.VITE_AUTH0_OWNER_SUB,
     azp: testAuthEnv.VITE_AUTH0_CLIENT_ID,
     exp: Math.floor(Date.now() / 1000) + 600 };
@@ -89,17 +107,34 @@ test('both Vercel endpoints validate Google user tokens and accept explicitly ma
   const verified = await listen(t, withProviderKey(async (_req, res, access) => {
     chosen.push(access);
     res.writeHead(204).end();
-  }, 'site-key', testAuthEnv));
+  }, testAuthEnv));
   const sub = 'google-oauth2|other-user';
   const authorization = 'Bearer ' + await sign({ sub });
+  for (const access of [new Headers({ 'x-bandit-demo': '1' }), new Headers({ authorization })]) {
+    for (const [path, key] of [['/api/identify', 'personal-gemini'], ['/api/sounds?name=keys', 'personal-elevenlabs']]) {
+      const headers = new Headers(access);
+      headers.set('Content-Type', 'application/json');
+      headers.set('x-pocket-band', '1');
+      const init = { method: 'POST', headers, body: JSON.stringify({ image: '/9j/AA==' }) };
+      assert.equal((await request(url + path, init)).status, 503, path);
+      headers.set('x-bandit-api-key', key);
+      assert.equal((await request(url + path, init)).status, 403, path);
+    }
+  }
+  assert.deepEqual(providerKeys, ['personal-gemini', 'personal-elevenlabs', 'personal-gemini', 'personal-elevenlabs']);
   for (const headers of [new Headers({ authorization, 'x-bandit-api-key': 'personal-key' }),
-    new Headers({ authorization }), new Headers({ 'x-bandit-demo': '1' })]) {
+    new Headers({ authorization }), new Headers({ 'x-bandit-demo': '1' }),
+    new Headers({ 'x-bandit-demo': '1', 'x-bandit-api-key': 'demo-test-key' })]) {
     assert.equal((await request(verified, { headers })).status, 204);
   }
-  assert.deepEqual(chosen, [{ key: 'personal-key', member: sub }, { key: 'site-key', member: undefined }, { key: 'site-key', member: undefined }]);
+  assert.deepEqual(chosen, [
+    { key: 'personal-key', cacheScope: sub }, { key: undefined, cacheScope: undefined },
+    { key: undefined, cacheScope: undefined }, { key: 'demo-test-key', cacheScope: 'demo:demo-test-key' },
+  ]);
   for (const headers of [new Headers({ authorization, 'x-bandit-api-key': 'invalid key' }),
-    new Headers({ authorization, 'x-bandit-demo': '1' }), new Headers({ 'x-bandit-demo': '1', 'x-bandit-api-key': 'unexpected' })]) {
+    new Headers({ authorization, 'x-bandit-demo': '1' }), new Headers({ 'x-bandit-demo': '1', 'x-bandit-api-key': 'invalid key' })]) {
     assert.equal((await request(verified, { headers })).status, 400);
   }
-  assert.equal(chosen.length, 3);
+  assert.equal((await request(verified, { headers: { 'x-bandit-api-key': 'demo-test-key' } })).status, 401);
+  assert.equal(chosen.length, 4);
 });

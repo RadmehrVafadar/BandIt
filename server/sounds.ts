@@ -15,8 +15,7 @@ export class SoundKeyError extends Error {}
 export function soundBank(directory: string, labels: Set<string>, request = fetch, shared?: SharedSoundCache) {
   const pending = new Map<string, Promise<Buffer>>();
 
-  async function generate(name: string, key: string | undefined) {
-    if (!key) throw new Error('Set ELEVENLABS_API_KEY to generate new sounds.');
+  async function generate(name: string, key: string) {
     const description = name === 'car'
       ? 'A car starting: the starter motor cranks, the engine catches and settles into a low rattling idle'
       : demoPrompts.get(name) ?? 'Record the recognizable real-world sound of a ' + name + ' in use, capturing its characteristic action';
@@ -41,7 +40,9 @@ export function soundBank(directory: string, labels: Set<string>, request = fetc
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
-    const audio = shared ? await shared(id, () => generate(name, key)) : await generate(name, key);
+    const generateClip = key ? () => generate(name, key) : undefined;
+    const audio = shared ? await shared(id, generateClip) : await generateClip?.();
+    if (!audio) throw new Error('No cached sound available.');
     await mkdir(dirname(file), { recursive: true });
     const temporary = file + '.' + randomUUID();
     await writeFile(temporary, audio);
@@ -49,15 +50,16 @@ export function soundBank(directory: string, labels: Set<string>, request = fetc
     return audio;
   }
 
-  return function get(name: string, key?: string, member?: string) {
+  return function get(name: string, key?: string, cacheScope?: string) {
     if (!labels.has(name) || !/^[a-z -]+$/.test(name)) throw new Error('Unknown object.');
-    const scope = member ? createHash('sha256').update(member).digest('hex') : '';
+    const scope = cacheScope ? createHash('sha256').update(cacheScope).digest('hex') : '';
     const clip = name === 'car' ? 'car-ignition-v1' : name;
     const id = scope ? scope + '/' + clip : clip;
-    let result = pending.get(id);
+    const requestId = key ? id : 'cache:' + id;
+    let result = pending.get(requestId);
     if (!result) {
-      result = load(name, id, key).finally(() => pending.delete(id));
-      pending.set(id, result);
+      result = load(name, id, key).finally(() => pending.delete(requestId));
+      pending.set(requestId, result);
     }
     return result;
   };

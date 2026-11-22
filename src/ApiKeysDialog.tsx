@@ -37,14 +37,14 @@ export function ApiKeysDialog({ keys, welcome, onCancel, onSave }: Props) {
   }}>
     <form onSubmit={submit} autoComplete="off">
       <h2 id="keys-title">Your API keys</h2>
-      <p>Use your own provider accounts for photos or sounds. Both keys are optional.</p>
+      <p>Drawing, beatbox and bundled sounds work without keys.</p>
       <label htmlFor="gemini-key">Gemini API key <span>Photo recognition</span></label>
       <input id="gemini-key" name="gemini" type="password" maxLength={512} defaultValue={keys.gemini}
         spellCheck={false} autoComplete="off" />
       <label htmlFor="elevenlabs-key">ElevenLabs API key <span>Generated sounds</span></label>
       <input id="elevenlabs-key" name="elevenlabs" type="password" maxLength={512} defaultValue={keys.elevenlabs}
         spellCheck={false} autoComplete="off" />
-      <p className="key-lifetime">Keys are forgotten when you reload or sign out.</p>
+      <p className="key-lifetime">Keys are forgotten when you reload or exit the studio.</p>
       {error && <p role="alert">{error}</p>}
       <button type="submit" className="login-button">{welcome ? 'Open studio' : 'Save keys'} <ArrowRight size={17} /></button>
       <div className="key-actions">

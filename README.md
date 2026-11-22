@@ -28,6 +28,8 @@ Choose **See demo** at the local URL Vite prints.
 Draw a key, then choose **Keys**.
 Repeat with a drum, cup, and bell to play Tabletop Bingo without API keys.
 
+Use **API keys** in either mode to add your own Gemini key for photo recognition or ElevenLabs key for new sounds.
+
 ## Docs
 
 - [How sketches and photos become instruments](docs/recognition.md)

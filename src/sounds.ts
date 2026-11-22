@@ -24,7 +24,7 @@ export async function objectSound(name: string, context: BaseAudioContext, acces
     return decodeSample(await response.arrayBuffer(), context);
   }
   const cacheKey = import.meta.env.BASE_URL + 'object-audio/' + encodeURIComponent(label);
-  const scope = access.account && access.keys.elevenlabs ? ':' + access.account.sub : '';
+  const scope = access.keys.elevenlabs ? ':' + (access.account?.sub ?? 'demo') : '';
   const cache = await globalThis.caches?.open('bandit-object-audio-v1' + scope).catch(() => undefined);
   let generated = false;
   let response = await cache?.match(cacheKey).catch(() => undefined);
@@ -35,6 +35,9 @@ export async function objectSound(name: string, context: BaseAudioContext, acces
     });
   }
   if (response.status === 403 && access.keys.elevenlabs) throw new SoundKeyError('Check your ElevenLabs key in API keys.');
+  if (response.status === 503 && !access.keys.elevenlabs) {
+    throw new SoundKeyError('Add an ElevenLabs key in API keys to generate sounds.');
+  }
   if (!response.ok) throw new Error('Sound unavailable');
   const encoded = await response.arrayBuffer();
   const sample = await decodeSample(encoded, context);

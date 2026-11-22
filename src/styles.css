@@ -369,6 +369,8 @@ button:disabled { cursor: default; color: #77777e; }
       'error error' auto
       '. .' minmax(0, 1fr) / minmax(0, 1fr) auto;
   }
+  .studio-account { max-width: 100%; }
+  .studio-account .icon-button { min-width: 24px; }
   .brand { gap: 5px; font-size: 1.25rem; }
   .brand-note { width: 31px; height: 31px; }
   .play-button { min-width: 78px; padding-inline: 10px; }
