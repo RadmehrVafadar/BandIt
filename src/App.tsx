@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { CSSProperties } from 'react';
-import { Camera, Headphones, KeyRound, LogOut, Pause, Play, Plus, X } from 'lucide-react';
+import { Camera, Headphones, KeyRound, LogOut, Pause, Play, Plus, Repeat2, X } from 'lucide-react';
 import { storageSuffix } from './auth.ts';
 import type { StudioAccess } from './auth.ts';
 import { createBeatboxPack } from './beatbox.ts';
 import { CameraCapture } from './CameraCapture.tsx';
 import { Drawing } from './Drawing.tsx';
 import { BeatEngine } from './engine.ts';
-import { emptyStage, openLibrary, readLibrary, storeStage } from './library.ts';
+import { emptyStage, openLibrary, readLibrary, storeRhythm, storeStage } from './library.ts';
 import { nativePart } from './loop-score.ts';
 import { loadLoops } from './loops.ts';
 import { STEP_SECONDS } from './music.ts';
 import type { DrawingSize, Instrument, Part, Position, Slots } from './music.ts';
+import type { Rhythms } from './rhythm.ts';
 import { objectLabels, photoMeanings } from './object-labels.ts';
 import { createObject, doodleSuggestion, drawingFile, objects } from './objects.ts';
 import type { Suggestion } from './objects.ts';
@@ -58,7 +59,11 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
   const scheduled = engine?.scheduledSlots ?? slots;
   const planned = engine?.arrangement ?? slots;
   const objectCount = planned.filter(Boolean).length;
-  const motion = usePhoneMotion(engine, actors, playing, objectCount);
+  const onlyId = objectCount === 1 ? planned.find(id => id !== null) : undefined;
+  const looped = !!onlyId && !!engine?.rhythms.has(onlyId);
+  const recording = engine?.recording;
+  const recordingBeat = engine?.recordingBeat ?? 0;
+  const motion = usePhoneMotion(engine, actors, playing, objectCount, looped);
   const entrances = useRef(new Map<string, number>());
   const preparing = useRef(false);
   const [loadingSound, setLoadingSound] = useState('');
@@ -92,6 +97,7 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
       const loadingLoops = loadLoops();
       let arrangement = emptyStage;
       let parts: Map<string, Part> | undefined;
+      let rhythms: Rhythms | undefined;
       try {
         const connection = await openLibrary(libraryName);
         if (canceled) return connection.close();
@@ -105,6 +111,7 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
         setInstruments(hasLegacyLibrary ? [...starters, ...saved.instruments] : saved.instruments);
         arrangement = saved.slots;
         parts = saved.parts;
+        rhythms = saved.rhythms;
       } catch {
         if (!canceled) setError('Local storage is unavailable. You can still draw and play.');
       }
@@ -128,7 +135,10 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
           if (hitFloor || actor.dataset.active === 'true') active.push(actor);
         }
         movePerformers(active, rebounds, position * STEP_SECONDS, motion.matches);
-      }, loops, parts);
+      }, loops, parts, rhythms, (id, hits) => {
+        if (db.current) void storeRhythm(db.current, id, hits).catch(() => setError('The rhythm could not be saved on this device.'));
+        refresh(value => value + 1);
+      });
       setEngine(instance);
     }
 
@@ -166,6 +176,20 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
       void storeStage(db.current, engine.arrangement, item, engine.plannedParts).catch(() => {
         setError('The mix could not be saved on this device.');
       });
+    }
+  }
+
+  async function armRhythm() {
+    if (!engine || !onlyId) return;
+    void motion.requestAccess(1, true);
+    try {
+      await engine.resumeAudio();
+      if (engine.armRhythm(onlyId)) {
+        entrances.current.set(onlyId, 0);
+        setPlaying(true);
+      }
+    } catch {
+      setError(audioStartError);
     }
   }
 
@@ -280,27 +304,54 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
             '--art-aspect': item.drawing?.aspect,
           } as CSSProperties;
           const queued = slots[index] !== planned[index] || !slots[index];
+          const tapping = recording?.id === item.id;
           return <div key={item.id} className="performer" style={style} data-solo-muted={solo.isMuted(item.id)}
             ref={element => {
               if (element) actors.current.set(item.id, element);
               else actors.current.delete(item.id);
             }} data-part={engine?.part(item.id)} data-performer={item.name} data-active={slots[index] === item.id}
-            data-hit={hits.includes(index)} data-queued={queued} data-drawing={!!item.drawing} aria-hidden="true">
+            data-hit={hits.includes(index)} data-queued={queued} data-drawing={!!item.drawing}
+            data-recording={tapping || undefined} aria-hidden={tapping ? undefined : true}>
             <div className="performer-art"><ObjectArt item={item} size={36} /></div>
+            {tapping && <button type="button" className="rhythm-pad" autoFocus aria-label={'Tap ' + item.name}
+              onPointerDown={event => { if (event.isPrimary && event.button === 0) engine?.recordHit(); }}
+              onClick={event => { if (event.detail === 0) engine?.recordHit(); }} />}
           </div>;
         })}
       </Drawing>
-      {motion.message && pickerSlot === null && cameraSlot === null &&
-        <p className="motion-status" role="status">{motion.message}</p>}
+      {pickerSlot === null && cameraSlot === null && (recording || engine?.rhythmTarget) &&
+        <div className="rhythm-controls" data-recording={!!recording}>
+          {motion.message && !recording && <p className="motion-status" role="status">{motion.message}</p>}
+          {recording && <p className="rhythm-cue" role="status">
+            {recordingBeat ? 'Recording one bar' : (motion.canShake ? 'Shake or tap ' : 'Tap ') + bank.current.get(recording.id)?.name + ' to start'}
+            {!!recordingBeat && <span className="beat-marks" aria-hidden="true">
+              {[1, 2, 3, 4].map(beat => <i key={beat} data-filled={beat <= recordingBeat} />)}
+            </span>}
+          </p>}
+          {looped && !recording && <p className="rhythm-cue" role="status">{playing ? 'Rhythm looping' : 'Rhythm saved'}</p>}
+          <div className="rhythm-actions">
+            <button type="button" className="play-button" onClick={recording ? () => engine?.cancelRecording() : armRhythm}>
+              {recording ? <X size={16} /> : <Repeat2 size={17} />}
+              {recording ? 'Cancel recording' : looped ? 'Record again' : 'Loop my rhythm'}
+            </button>
+            {onlyId && looped && !recording && <button type="button" className="icon-button"
+              aria-label="Clear rhythm" title="Clear rhythm" onClick={() => {
+                engine?.clearRhythm(onlyId);
+                if (playing) void motion.requestAccess();
+              }}><X size={17} /></button>}
+          </div>
+        </div>}
       <section className="mix" data-expanded={stageSize > emptyStage.length || firstFree === stageSize} aria-label="Object slots">
         {performers.map((item, index) => {
           if (!item && index >= capacity) return null;
           const label = item ? 'Solo ' + item.name : 'Add an object to slot ' + (index + 1);
+          const recorded = !!item && engine?.rhythms.has(item.id);
           const queued = !planned[index] ? 'Leaving on the next bar' : !slots[index] ? 'Joins on the next bar' : '';
           return (
             <div key={index} className="mix-slot" ref={index === firstFree && index >= emptyStage.length ? nextExtraSlot : undefined}>
               <button type="button" className={item ? 'slot-button' : 'slot-button empty-slot'}
                 aria-label={label} title={item ? label + ' (click to toggle, hold to preview)' : 'Add an object'}
+                aria-description={recorded ? 'Plays your recorded rhythm.' : undefined}
                 disabled={item ? !planned[index] : !engine || !!loadingSound}
                 popoverTarget={item ? undefined : 'saved-picker'} popoverTargetAction={item ? undefined : 'show'}
                 aria-haspopup={item ? undefined : 'dialog'} aria-expanded={item ? undefined : pickerSlot === index}
@@ -311,7 +362,10 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
                 {item ? <>
                   <Headphones className="solo-icon" size={15} />
                   <span className="slot-art" data-solo-muted={solo.isMuted(item.id)}><ObjectArt item={item} size={28} /></span>
-                  <span className={queued ? 'slot-label queued' : 'slot-label'}>{queued || item.name}</span>
+                  <span className={queued ? 'slot-label queued' : 'slot-label'}>
+                    {!queued && recorded && <Repeat2 size={12} aria-hidden="true" />}
+                    {queued || item.name}
+                  </span>
                 </> : <Plus size={20} strokeWidth={1.5} />}
               </button>
               {item && <button type="button" className="icon-button remove-object"

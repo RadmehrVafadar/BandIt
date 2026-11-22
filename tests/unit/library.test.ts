@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { openLibrary, readLibrary, storeStage } from '../../src/library.ts';
+import { openLibrary, readLibrary, storeRhythm, storeStage } from '../../src/library.ts';
 import type { Instrument } from '../../src/music.ts';
 
 test('restore instrument media and stage across connections', async () => {
@@ -31,4 +31,21 @@ test('save a recognized object and its normalized position with the stage', asyn
   await storeStage(db, slots, key);
   assert.deepEqual(await readLibrary(db), { instruments: [key], slots });
   db.close();
+});
+
+test('lineup changes and concurrent takes preserve rhythms saved for other instruments', async () => {
+  const first = await openLibrary('rhythm-library-test');
+  const second = await openLibrary('rhythm-library-test');
+  await Promise.all([
+    storeRhythm(first, 'mug', [[0, 1], [7, 1]]),
+    storeRhythm(second, 'pen', [[0, 1], [12, 1]]),
+    storeStage(first, ['pen', null, null, null]),
+  ]);
+  assert.deepEqual((await readLibrary(first)).rhythms, new Map([
+    ['mug', [[0, 1], [7, 1]]], ['pen', [[0, 1], [12, 1]]],
+  ]));
+  await storeRhythm(second, 'mug');
+  assert.deepEqual((await readLibrary(first)).rhythms, new Map([['pen', [[0, 1], [12, 1]]]]));
+  first.close();
+  second.close();
 });

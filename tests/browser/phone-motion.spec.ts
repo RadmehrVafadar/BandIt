@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { createBeatboxPack } from '../../src/beatbox.ts';
+import { BAR_STEPS, STEP_SECONDS } from '../../src/music.ts';
 
 test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'no-preference' });
 
@@ -20,11 +21,15 @@ async function openPhone(page: Page, permission: 'granted' | 'denied') {
       return Promise.resolve(permission);
     } });
     const sounds: number[] = [];
-    Object.assign(window, { sounds });
+    const times: number[] = [];
+    Object.assign(window, { sounds, times });
     if (!window.AudioBufferSourceNode) return;
     const start = AudioBufferSourceNode.prototype.start;
     AudioBufferSourceNode.prototype.start = function (...args) {
-      if (this.buffer && this.buffer.length > 1) sounds.push(this.buffer.length);
+      if (this.buffer && this.buffer.length > 1) {
+        sounds.push(this.buffer.length);
+        times.push(args[0] ?? 0);
+      }
       return start.apply(this, args);
     };
   }, permission);
@@ -59,6 +64,13 @@ function flick(page: Page, strength: number) {
 
 function playedSounds(page: Page) {
   return page.evaluate(() => (window as unknown as { sounds: number[] }).sounds);
+}
+
+function playedAt(page: Page, length: number) {
+  return page.evaluate(length => {
+    const { sounds, times } = window as unknown as { sounds: number[]; times: number[] };
+    return times.filter((_, i) => sounds[i] === length);
+  }, length);
 }
 
 test('iPhone motion plays the object once at each wall and freezes on pause', async ({ page }) => {
@@ -180,6 +192,56 @@ test('a short shake that finishes between frames plays one edge hit', async ({ p
   expect(Math.min(box.x, 390 - box.x - box.width)).toBeCloseTo(0);
   await page.waitForTimeout(150);
   expect(await playedSounds(page)).toHaveLength(1);
+});
+
+test('a phone shake records on the gesture and loops through an instrument joining mid-take', async ({ page }) => {
+  test.skip(!await page.evaluate(() => 'AudioContext' in window), 'This browser build has no Web Audio output.');
+  await openPhone(page, 'granted');
+  const kick = await addVoice(page);
+  await tilt(page, 0, 0);
+  await expect(kick).toHaveAttribute('data-loose', '');
+  await page.getByRole('button', { name: 'Loop my rhythm' }).tap();
+  await expect(page.getByText('Shake or tap Lip Kick to start')).toBeVisible();
+  await flick(page, 12);
+  await expect(page.getByText('Recording one bar')).toBeVisible();
+  await addVoice(page, 'Pf Snare', 1);
+  const voices = createBeatboxPack('/').map(voice => voice.sample.samples.length);
+  await expect.poll(() => playedSounds(page)).toContain(voices[1]);
+  await expect.poll(async () => (await playedAt(page, voices[0])).length).toBeGreaterThanOrEqual(3);
+  const kicks = await playedAt(page, voices[0]);
+  expect(kicks[1] - kicks[0]).toBeCloseTo(BAR_STEPS * STEP_SECONDS, 4);
+  expect(kicks[2] - kicks[1]).toBeCloseTo(BAR_STEPS * STEP_SECONDS, 4);
+  await page.getByRole('button', { name: 'Remove Pf Snare' }).tap();
+  await expect(page.getByText('Rhythm looping')).toBeVisible();
+  await page.getByRole('button', { name: 'Clear rhythm' }).tap();
+  await tilt(page, 0, 0);
+  await expect(kick).toHaveAttribute('data-loose', '');
+});
+
+test('touch taps work with denied motion and an interrupted retake keeps the saved rhythm', async ({ page }) => {
+  test.skip(!await page.evaluate(() => 'AudioContext' in window), 'This browser build has no Web Audio output.');
+  await openPhone(page, 'denied');
+  await addVoice(page);
+  await page.getByRole('button', { name: 'Loop my rhythm' }).tap();
+  await expect(page.getByText('Tap Lip Kick to start')).toBeVisible();
+  await page.getByRole('button', { name: 'Tap Lip Kick' }).tap();
+  await expect(page.getByText('Rhythm looping')).toBeVisible();
+  await page.getByRole('button', { name: 'Record again' }).tap();
+  await page.getByRole('button', { name: 'Tap Lip Kick' }).tap();
+  await page.waitForTimeout(350);
+  await page.getByRole('button', { name: 'Tap Lip Kick' }).tap();
+  await page.getByRole('button', { name: 'Pause', exact: true }).tap();
+  await expect(page.getByText('Rhythm saved')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Rhythm saved')).toBeVisible();
+  await page.getByRole('button', { name: 'Play', exact: true }).tap();
+  const kickLength = createBeatboxPack('/')[0].sample.samples.length;
+  await expect.poll(async () => (await playedAt(page, kickLength)).length).toBeGreaterThanOrEqual(2);
+  const [first, next] = await playedAt(page, kickLength);
+  expect(next - first).toBeCloseTo(BAR_STEPS * STEP_SECONDS, 4);
+  await expect(page.locator('html')).not.toHaveAttribute('data-motion-requests', /.+/);
+  await page.getByRole('button', { name: 'Clear rhythm' }).tap();
+  await expect(page.getByRole('button', { name: 'Loop my rhythm' })).toBeVisible();
 });
 
 test('adding a second object starts the band and removing it restores motion', async ({ page }) => {

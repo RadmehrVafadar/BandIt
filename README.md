@@ -10,6 +10,7 @@ BandIt is a browser music studio where a sketched keyring jingles on the offbeat
 
 - Sketch in white ink with a mouse, finger, or pen, then pick a matching illustration.
 - Shake your phone to hear a lone drawing play each time it hits an edge.
+- Choose **Loop my rhythm** and shake or tap one bar to keep your own rhythm when the band joins.
 - Add a second instrument to start a four-bar groove at 96 BPM.
 - Fill a **+** slot with a photo, a saved drawing, or a beatbox voice like **Lip Kick**.
 - Tap the headphones to solo a part, or hold them for a quick listen.

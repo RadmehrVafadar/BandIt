@@ -83,15 +83,15 @@ export function updateQueue(
   else pending.set(slot, { id, at: barBoundary(nextStep) });
 }
 
-export function bounceHeight(pattern: readonly Hit[], step: number, enteredAt: number) {
+export function bounceHeight(pattern: readonly Hit[], step: number, enteredAt: number, length = PHRASE) {
 
-  const bar = Math.floor(step / PHRASE) * PHRASE;
-  const previous = bar + (pattern.findLast(([beat]) => bar + beat <= step)?.[0] ?? pattern.at(-1)![0] - PHRASE);
-  const next = bar + (pattern.find(([beat]) => bar + beat > step)?.[0] ?? PHRASE + pattern[0][0]);
+  const bar = Math.floor(step / length) * length;
+  const previous = bar + (pattern.findLast(([beat]) => bar + beat <= step)?.[0] ?? pattern.at(-1)![0] - length);
+  const next = bar + (pattern.find(([beat]) => bar + beat > step)?.[0] ?? length + pattern[0][0]);
   if (next < enteredAt) return 1;
   if (previous < enteredAt) {
-    const firstBar = Math.floor(enteredAt / PHRASE) * PHRASE;
-    const first = firstBar + (pattern.find(([beat]) => firstBar + beat >= enteredAt)?.[0] ?? PHRASE + pattern[0][0]);
+    const firstBar = Math.floor(enteredAt / length) * length;
+    const first = firstBar + (pattern.find(([beat]) => firstBar + beat >= enteredAt)?.[0] ?? length + pattern[0][0]);
     const progress = Math.max(0, 1 - (first - step) / 2);
     return 1 - progress ** 2;
   }

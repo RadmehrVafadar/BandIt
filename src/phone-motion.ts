@@ -70,10 +70,12 @@ export function createLooseStage() {
   let gravity: Vector | undefined;
   let firstMovingSample: Vector | undefined;
   let pending: (Position & { strength: number }) | undefined;
+  let shakeHeld = false;
 
   function clearShake() {
     pending = undefined;
     firstMovingSample = undefined;
+    shakeHeld = false;
   }
 
   function estimateShake(total: Vector, interval: number, acceptShake: boolean) {
@@ -99,11 +101,14 @@ export function createLooseStage() {
   }
 
   return {
-    read(event: MotionSample, angle: number, appleMobile: boolean, acceptShake: boolean) {
+    read(event: MotionSample, angle: number, appleMobile: boolean, acceptShake: boolean, onShake?: () => void) {
       if (!acceptShake) clearShake();
       const total = vector(event.accelerationIncludingGravity);
       const linear = vector(event.acceleration, true);
-      if (!total && !linear) return false;
+      if (!total && !linear) {
+        shakeHeld = false;
+        return false;
+      }
       let shake = linear;
       if (linear) firstMovingSample = undefined;
       if (total) {
@@ -121,12 +126,16 @@ export function createLooseStage() {
         // A push through the face of the screen sends the object along the screen's vertical axis.
         if (Math.abs(shake.z) > Math.hypot(shake.x, shake.y)) direction.y = appleMobile ? -shake.z : shake.z;
         const strength = Math.hypot(direction.x, direction.y);
+        if (strength >= shakeThreshold && !shakeHeld) {
+          shakeHeld = true;
+          onShake?.();
+        } else if (strength < lightShakeThreshold) shakeHeld = false;
         // Keep the strongest impulse until the next animation frame, even if the phone has already settled.
         if (strength >= shakeThreshold && strength > (pending?.strength ?? 0)) {
           firstMovingSample = undefined;
           pending = { ...direction, strength };
         }
-      }
+      } else if (!shake) shakeHeld = false;
       return true;
     },
     clearShake,

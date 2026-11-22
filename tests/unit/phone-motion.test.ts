@@ -109,6 +109,26 @@ test('a short shake and its release between frames still send an object to the w
   }
 });
 
+test('a recorded shake fires on the first strong sample and rearms after release', () => {
+  const stage = createLooseStage();
+  let hits = 0;
+  function read(x: number | null, z: number, playing = true) {
+    stage.read({ acceleration: { x, y: x === null ? null : 0, z }, accelerationIncludingGravity: null, interval: 16 },
+      0, true, playing, () => { hits++; });
+  }
+  read(5, 0);
+  read(15, 0);
+  read(17, 0);
+  read(10, 0);
+  assert.equal(hits, 1);
+  read(0, 0);
+  read(null, 12);
+  read(null, 0);
+  read(null, -12);
+  read(15, 0, false);
+  assert.equal(hits, 3);
+});
+
 test('shakes through the face of the screen send the object to either vertical edge', () => {
   const stage = phone();
   stage.read(flat, still);
