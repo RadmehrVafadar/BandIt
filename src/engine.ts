@@ -12,6 +12,11 @@ type Frame = { step: number; hits: number[]; slots: Slots };
 type ScheduledFrame = Frame & { ensemble: Ensemble; time: number; applied: Map<number, Change> };
 const LOOKAHEAD = 0.105;
 
+function setSlot(slots: Slots, index: number, id: string | null) {
+  while (slots.length < index) slots.push(null);
+  slots[index] = id;
+}
+
 export class BeatEngine {
   readonly pending = new Map<number, Change>();
   private readonly mixer = new AudioMixer(() => this.ensemble.players.size);
@@ -72,10 +77,9 @@ export class BeatEngine {
   }
 
   get arrangement() {
-    return this.slots.map((id, index) => {
-      const change = this.pending.get(index);
-      return change ? change.id : id;
-    });
+    const slots = [...this.slots];
+    for (const [index, change] of this.pending) setSlot(slots, index, change.id);
+    return slots;
   }
 
   get audioContext() {
@@ -157,7 +161,9 @@ export class BeatEngine {
       this.pending.delete(slot);
       const previous = this.slots[slot];
       if (this.running && previous && previous !== id) this.mixer.fadeOut(previous, this.mixer.context.currentTime);
-      this.showSlots(this.slots.map((current, index) => index === slot ? id : current));
+      const slots = [...this.slots];
+      setSlot(slots, slot, id);
+      this.showSlots(slots);
       return this.next;
     }
     updateQueue(this.slots, this.pending, slot, id, this.next);
@@ -180,7 +186,7 @@ export class BeatEngine {
     const { players } = this.ensemble;
     const stemSlice = { offset: phase * STEP_SECONDS, duration, mix: 'band' } as const;
     for (const [id, player] of players) {
-      if ('stem' in player) this.mixer.play(id, player.stem, time, player.accent ? .62 : 1, stemSlice);
+      if ('stem' in player && player.stem) this.mixer.play(id, player.stem, time, player.accent ? .62 : 1, stemSlice);
     }
     const { bass, strings } = this.accompaniment[Math.floor(phase / BAR_STEPS)];
     const slice = { ...stemSlice, offset: beat * STEP_SECONDS };
@@ -191,18 +197,20 @@ export class BeatEngine {
   private applyPendingChanges(step: number, time: number) {
     const applied = new Map<number, Change>();
     if (step % BAR_STEPS !== 0 || !this.pending.size) return applied;
-    this.slots = this.slots.map((id, index) => {
-      const change = this.pending.get(index);
-      if (!change || change.at > step) return id;
+    const slots = [...this.slots];
+    for (const [index, change] of this.pending) {
+      if (change.at > step) continue;
       applied.set(index, change);
       this.pending.delete(index);
+      const id = slots[index];
       if (id && id !== change.id) {
         this.signatureEnds.delete(id);
         this.mixer.fadeOut(id, time);
       }
-      return change.id;
-    });
+      setSlot(slots, index, change.id);
+    }
     if (applied.size) {
+      this.slots = slots;
       this.ensemble = this.buildEnsemble();
       if (this.ensemble.players.size < 2) this.mixer.fadeBacking(time);
     }

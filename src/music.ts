@@ -32,10 +32,12 @@ export function arrange(players: readonly Musician[], previous: ReadonlyMap<stri
   const remaining = players.filter(player => !chosen.has(player.id));
   if (!remaining.length) return chosen;
   const occupied = new Set(chosen.values());
+  const available = parts.filter(part => !occupied.has(part));
+  const leads = remaining.slice(0, available.length);
   let best = new Map<string, Part>();
   let bestScore = -Infinity;
   function visit(index: number, total: number, available: Part[]) {
-    if (index === remaining.length) {
+    if (index === leads.length) {
       if (players.length > 1 && available.includes('pulse')) return;
       if (total > bestScore) {
         bestScore = total;
@@ -43,7 +45,7 @@ export function arrange(players: readonly Musician[], previous: ReadonlyMap<stri
       }
       return;
     }
-    const { id, role } = remaining[index];
+    const { id, role } = leads[index];
     for (const part of available) {
       chosen.set(id, part);
       visit(index + 1, total + fit[role][part] + (previous.get(id) === part ? 1.5 : 0),
@@ -51,7 +53,12 @@ export function arrange(players: readonly Musician[], previous: ReadonlyMap<stri
     }
     chosen.delete(id);
   }
-  visit(0, 0, parts.filter(part => !occupied.has(part)));
+  visit(0, 0, available);
+  for (const { id, role, nativePart } of remaining.slice(leads.length)) {
+    const preferred = previous.get(id) ?? nativePart ?? parts.reduce((best, part) =>
+      fit[role][part] > fit[role][best] ? part : best);
+    best.set(id, preferred);
+  }
   return best;
 }
 export type Sample = { samples: Float32Array; rate: number; preserveRecording?: boolean; articulation?: 'whinny' | 'beatbox' };
@@ -72,7 +79,7 @@ export function barBoundary(nextStep: number) {
 export function updateQueue(
   slots: Slots, pending: Map<number, Change>, slot: number, id: string | null, nextStep: number,
 ) {
-  if (id === slots[slot]) pending.delete(slot);
+  if (id === (slots[slot] ?? null)) pending.delete(slot);
   else pending.set(slot, { id, at: barBoundary(nextStep) });
 }
 

@@ -10,7 +10,7 @@ The rainbow note logo holds still when reduced motion is enabled.
 - Draw with a mouse, finger, or pen and pick a matching illustration from **Choose a sound**.
 - Sketch objects from all 345 Quick, Draw! categories, or draw a bell or whistle.
 - Hear a lone object's own sound, from a keyring jingle to a horse's whinny.
-- Build a ten-second groove from up to four drawings on a shared 96 BPM clock.
+- Build a ten-second groove at 96 BPM with four starting slots and automatic expansion on desktop.
 - Click an object's headphones to toggle solo, or hold to hear it until you release.
 - Open an empty slot to add a beatbox voice, photograph an object, or bring back a saved one.
 
@@ -24,6 +24,9 @@ npm run dev
 Open the localhost URL Vite prints and choose **See demo**, or sign in with Google to keep a separate local studio.
 After sign-in, enter either provider key or select **Skip for now** to use the site's keys.
 See the [login and API key guide](docs/authentication.md) for hosting settings.
+
+On desktop, each time you fill the mix, another empty slot appears.
+On mobile, the mix holds up to four objects.
 
 On iPhone, open the site over HTTPS, draw with your finger, and tap a sound.
 Allow motion access when prompted, then give the phone a firm shake to send the object toward a screen edge.
@@ -92,7 +95,7 @@ Reduced Motion keeps performers in place during beat playback.
 Try one bell to hear the melody, then draw more bells to add the pulse, backbeat, and offbeats.
 The harmony moves through Cm7, A-flat major 7, E-flat 6, and G7 before returning to C minor.
 With two or more drawings, a quieter bass joins on the offbeat in the second bar.
-With three or four, soft strings enter halfway through the phrase and release before it repeats.
+With three or more drawings, soft strings enter halfway through the phrase and release before it repeats.
 Soloing a drawing mutes the other players and all backing parts.
 Lineup changes within a running band take effect on the next downbeat.
 For how sound and stage animation stay in sync across lineup changes and pauses, see the [playback guide](docs/playback.md).

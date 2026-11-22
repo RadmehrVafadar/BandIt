@@ -58,3 +58,25 @@ test('Pool keeps its water sound when its part changes in a band', () => {
     assert.notEqual(player.solo.sample, player.stem);
   }
 });
+
+test('additional bells share a rhythm and play their samples without duplicating a stem', () => {
+  const bells = Array.from({ length: 8 }, (_, index): Instrument => ({
+    id: 'bell-' + index, name: 'Bell', kind: 'bell', role: 'bell', sample: { ...tap },
+  }));
+  const bank = new Map(bells.map(item => [item.id, item]));
+  const slots = bells.map(item => item.id);
+  const original = buildEnsemble(slots.slice(0, 4), bank, loops);
+  const expanded = buildEnsemble(slots, bank, loops, original.parts);
+  assert.equal(expanded.players.size, bells.length);
+  for (const [id, part] of original.parts) {
+    assert.equal(expanded.parts.get(id), part);
+    assert.deepEqual(expanded.players.get(id), original.players.get(id));
+  }
+  for (const bell of bells.slice(4)) {
+    const layer = expanded.players.get(bell.id);
+    assert.ok(layer && 'solo' in layer);
+    assert.equal(layer.stem, undefined);
+    assert.equal(layer.accent?.sample, bell.sample);
+    assert.ok(layer.accent?.steps.size);
+  }
+});

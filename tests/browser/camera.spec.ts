@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page, Route } from '@playwright/test';
+import { createBeatboxPack } from '../../src/beatbox.ts';
 import { mockAuth0, testAccessToken } from '../fixtures/auth0.ts';
 
 test.use({
@@ -50,6 +51,31 @@ for (const mode of ['demo', 'skip', 'personal Gemini', 'personal ElevenLabs'] as
     expect(calls).toEqual(['/api/identify', '/api/sounds']);
   });
 }
+
+test('photographs an object into an extra desktop slot', async ({ page }) => {
+  let captures = 0;
+  await page.route('**/api/identify', route => route.fulfill({
+    json: { name: ++captures === 1 ? 'water bottle' : 'computer mouse' },
+  }));
+  await page.goto('/');
+  for (const [index, { name }] of createBeatboxPack('/').entries()) {
+    await page.getByRole('button', { name: 'Add an object to slot ' + (index + 1) }).click();
+    await page.getByRole('button', { name: 'Add ' + name, exact: true }).click();
+  }
+  const camera = await openCamera(page, 5);
+  await camera.getByRole('button', { name: 'Take photo' }).click();
+  const bottle = page.locator('[data-performer="Water bottle"]');
+  await expect(bottle).toHaveAttribute('data-active', 'true');
+  await expect(bottle).toHaveCSS('--x', '90%');
+  await expect(page.getByRole('button', { name: 'Add an object to slot 6' })).toBeEnabled();
+
+  const nextCamera = await openCamera(page, 6);
+  await nextCamera.getByRole('button', { name: 'Take photo' }).click();
+  await expect(bottle).toHaveCSS('--x', '75%');
+  await expect(page.getByRole('button', { name: 'Add an object to slot 7' })).toBeEnabled();
+  await page.reload();
+  await expect(bottle).toHaveCSS('--x', '75%');
+});
 
 test('photographs an object into the chosen slot and saves it for reuse', async ({ page }) => {
   let captures = 0;

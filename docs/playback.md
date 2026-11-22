@@ -9,7 +9,8 @@ BandIt plays each object's own sample on a phone motion impact or schedules its 
 3. The mixer reuses an audio buffer for each sample and gives every playing source its own gain so solo changes also affect sounds already in progress.
 4. The animation reads the audio output timestamp and displays the lineup and hits for the step that has reached the speakers.
 
-The four **+** slots place objects at the centers of four equal columns across the stage, from left to right.
+The **+** slots place objects at the centers of equal columns across the stage, from left to right.
+The columns adjust as desktop slots are added or removed.
 A fresh drawing starts where you drew it.
 Picking it again through **+** moves it to that slot's column and saves the new placement.
 Large saved drawings scale down to fit their column.

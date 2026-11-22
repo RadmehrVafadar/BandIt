@@ -222,19 +222,71 @@ test('draw keys, hear a floor hit, and layer a drum at the next bar', async ({ p
   expect((await drums.boundingBox())!.x).not.toBe(originalX);
 });
 
-test('four distinct sounds fill the stage and removing a layer frees room', async ({ page }) => {
+test('desktop keeps adding slots and restores the expanded mix', async ({ page }) => {
+  const notes = await trackNotes(page);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
+  const mix = page.getByRole('region', { name: 'Object slots' });
+  const slot = (number: number) => mix.getByRole('button', { name: 'Add an object to slot ' + number });
+  const active = page.locator('[data-active=true]');
+  await expect(mix.locator('.mix-slot')).toHaveCount(4);
   const sketches = [key, drum, bell, cup];
   for (const [index, strokes] of sketches.entries()) {
     await draw(page, strokes, 40 + index * 115, 90 + index * 12);
     await page.getByRole('group', { name: 'Sound suggestions' }).getByRole('button').first().click();
   }
-  await expect(page.locator('[data-active=true]')).toHaveCount(4, { timeout: 5000 });
-  await expect(page.getByText('The mix is full.', { exact: false })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Remove Bell' })).toBeEnabled();
-  await expect(page.getByRole('button', { name: 'Remove Cup' })).toBeEnabled();
-  await page.getByRole('button', { name: 'Remove Bell' }).click();
-  await expect(page.getByLabel('Draw an object')).toHaveAttribute('data-disabled', 'false', { timeout: 5000 });
+  await expect(slot(5)).toBeEnabled();
+  await expect(slot(6)).toHaveCount(0);
+  await draw(page, bell, 120, 190);
+  await page.getByRole('button', { name: 'Use Bell sound' }).click();
+  await expect(active).toHaveCount(5);
+  const fifth = active.and(page.locator('[data-performer="Bell"]')).last();
+  await expect(fifth).toHaveAttribute('data-part', /.+/);
+
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  await page.setViewportSize({ width: 680, height: 820 });
+  await slot(6).click();
+  await page.getByRole('button', { name: 'Add Lip Kick', exact: true }).click();
+  const kickActor = page.locator('[data-performer="Lip Kick"]');
+  await expect.poll(async () => {
+    const box = (await kickActor.boundingBox())!;
+    return Math.round((box.x + box.width / 2) / 680 * 1000);
+  }).toBe(Math.round(5.5 / 6 * 1000));
+  await expect(slot(7)).toBeInViewport({ ratio: 1 });
+  await expect(slot(7)).toBeEnabled();
+  await expect(slot(8)).toHaveCount(0);
+
+  await page.reload();
+  await expect(active).toHaveCount(6);
+  await expect(slot(7)).toBeInViewport({ ratio: 1 });
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  const kick = createBeatboxPack('/')[0].sample;
+  await expect.poll(async () => (await notes()).some(hit => hit.duration === kick.samples.length / kick.rate)).toBe(true);
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  await mix.getByRole('button', { name: 'Remove Lip Kick' }).click();
+  await expect(mix.locator('.mix-slot')).toHaveCount(6);
+  await mix.getByRole('button', { name: 'Remove Keys' }).click();
+  await expect(slot(1)).toBeEnabled();
+  await expect(slot(6)).toHaveCount(0);
+});
+
+test.describe('touch-only object slots', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+
+  test('four objects fill the mix even in landscape', async ({ page }) => {
+    await page.goto('/');
+    for (const [index, { name }] of createBeatboxPack('/').entries()) {
+      await page.getByRole('button', { name: 'Add an object to slot ' + (index + 1) }).tap();
+      await page.getByRole('button', { name: 'Add ' + name, exact: true }).tap();
+    }
+    await expect(page.getByText('The mix is full.', { exact: false })).toBeVisible();
+    await expect(page.locator('.mix-slot')).toHaveCount(4);
+    const canvas = page.getByLabel('Draw an object');
+    await expect(canvas).toHaveAttribute('data-disabled', 'true');
+    await page.getByRole('button', { name: 'Remove Lip Kick' }).tap();
+    await expect(canvas).toHaveAttribute('data-disabled', 'false');
+    await expect(page.locator('.mix-slot')).toHaveCount(4);
+  });
 });
 
 test('the four + slots place picked objects left to right across the stage', async ({ page }) => {
