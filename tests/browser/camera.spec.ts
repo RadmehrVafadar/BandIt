@@ -15,6 +15,14 @@ test.beforeEach(async ({ page, baseURL }) => {
   await mockAuth0(page, { returningAt: baseURL });
 });
 
+async function openStudioWithGemini(page: Page) {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'API keys', exact: true }).click();
+  const keys = page.getByRole('dialog', { name: 'Your API keys' });
+  await keys.getByLabel('Gemini API key').fill('test-photo-key');
+  await keys.getByRole('button', { name: 'Save keys' }).click();
+}
+
 async function openCamera(page: Page, slot: number) {
   await page.getByRole('button', { name: 'Add an object to slot ' + slot }).click();
   const first = page.getByRole('dialog', { name: 'Add an object' }).getByRole('button').first();
@@ -23,38 +31,37 @@ async function openCamera(page: Page, slot: number) {
   return page.getByRole('dialog', { name: 'Camera', exact: true });
 }
 
-for (const mode of ['demo', 'skip', 'personal Gemini', 'personal ElevenLabs'] as const) {
+for (const mode of ['demo', 'signed-in', 'signed-in with Gemini only'] as const) {
   test(mode + ' sends only the selected credential to each feature', async ({ page }) => {
-    await page.goto(mode === 'demo' ? '/?demo' : '/');
-    if (mode === 'demo') {
-      await page.setViewportSize({ width: 320, height: 660 });
-      await page.getByRole('button', { name: 'Add an object to slot 1' }).click();
-      await page.getByRole('button', { name: 'Camera (Gemini key required)' }).click();
-    } else {
-      await page.getByRole('button', { name: 'API keys', exact: true }).click();
-    }
+    const demo = mode === 'demo';
+    const soundKey = mode === 'signed-in with Gemini only' ? undefined : 'test-sound-key';
+    if (demo) await page.setViewportSize({ width: 320, height: 660 });
+    await page.goto(demo ? '/?demo' : '/');
+    await page.getByRole('button', { name: 'Add an object to slot 1' }).click();
+    await page.getByRole('button', { name: 'Camera (Gemini key required)' }).click();
     const keys = page.getByRole('dialog', { name: 'Your API keys' });
-    if (mode === 'demo' || mode === 'personal Gemini') await keys.getByLabel('Gemini API key').fill('test-photo-key');
-    if (mode === 'demo' || mode === 'personal ElevenLabs') await keys.getByLabel('ElevenLabs API key').fill('test-sound-key');
+    await keys.getByLabel('Gemini API key').fill('test-photo-key');
+    if (soundKey) await keys.getByLabel('ElevenLabs API key').fill(soundKey);
     await keys.getByRole('button', { name: 'Save keys' }).click();
     const calls: string[] = [];
     await page.route('**/api/**', async route => {
       const req = route.request();
       const path = new URL(req.url()).pathname;
       const headers = req.headers();
-      expect(headers.authorization).toBe(mode === 'demo' ? undefined : 'Bearer ' + testAccessToken);
-      expect(headers['x-bandit-demo']).toBe(mode === 'demo' ? '1' : undefined);
-      const expected = path === '/api/identify' && (mode === 'demo' || mode === 'personal Gemini') ? 'test-photo-key'
-        : path === '/api/sounds' && (mode === 'demo' || mode === 'personal ElevenLabs') ? 'test-sound-key' : undefined;
-      expect(headers['x-bandit-api-key']).toBe(expected);
+      expect(headers.authorization).toBe(demo ? undefined : 'Bearer ' + testAccessToken);
+      expect(headers['x-bandit-demo']).toBe(demo ? '1' : undefined);
+      expect(headers['x-bandit-api-key']).toBe(path === '/api/identify' ? 'test-photo-key' : soundKey);
       calls.push(path);
-      return path === '/api/identify' ? route.fulfill({ json: { name: 'basketball' } }) : route.fulfill({ status: 503 });
+      if (path === '/api/identify') return route.fulfill({ json: { name: 'basketball' } });
+      if (soundKey) return route.fulfill({ path: 'public/demo-sounds/cup.mp3', contentType: 'audio/mpeg' });
+      return route.fulfill({ status: 503 });
     });
     const camera = await openCamera(page, 1);
     await camera.getByRole('button', { name: 'Take photo' }).click();
     await expect(page.getByRole('button', { name: 'Solo Basketball' })).toBeVisible();
     expect(calls).toEqual(['/api/identify', '/api/sounds']);
-    if (mode === 'demo') {
+    if (!soundKey) await expect(page.getByRole('alert')).toContainText('Add an ElevenLabs key in API keys');
+    if (demo) {
       await page.reload();
       await page.getByRole('button', { name: 'API keys', exact: true }).click();
       await expect(keys.getByLabel('Gemini API key')).toHaveValue('');
@@ -75,7 +82,7 @@ test('photographs an object into an extra desktop slot', async ({ page }) => {
   await page.route('**/api/identify', route => route.fulfill({
     json: { name: ++captures === 1 ? 'water bottle' : 'computer mouse' },
   }));
-  await page.goto('/');
+  await openStudioWithGemini(page);
   for (const [index, { name }] of createBeatboxPack('/').entries()) {
     await page.getByRole('button', { name: 'Add an object to slot ' + (index + 1) }).click();
     await page.getByRole('button', { name: 'Add ' + name, exact: true }).click();
@@ -105,7 +112,7 @@ test('photographs an object into the chosen slot and saves it for reuse', async 
     captures++;
     return route.fulfill({ json: { name: 'bell' } });
   });
-  await page.goto('/');
+  await openStudioWithGemini(page);
   const camera = await openCamera(page, 3);
   const shutter = camera.getByRole('button', { name: 'Take photo' });
   await expect(shutter).toBeEnabled();
@@ -125,7 +132,7 @@ test('photographs an object into the chosen slot and saves it for reuse', async 
   await page.getByRole('button', { name: 'Remove Bell' }).click();
   await page.getByRole('button', { name: 'Add an object to slot 4' }).click();
   const picker = page.getByRole('dialog', { name: 'Add an object' });
-  await expect(picker.getByRole('button').first()).toHaveAccessibleName('Camera');
+  await expect(picker.getByRole('button').first()).toHaveAccessibleName('Camera (Gemini key required)');
   await picker.getByRole('button', { name: 'Add Bell' }).click();
   await expect(page.locator('.mix-slot').nth(3).getByRole('button', { name: 'Solo Bell' })).toBeVisible();
   expect(captures).toBe(1);
@@ -141,7 +148,7 @@ test('retries an unclear mobile photo and plays an object outside the illustrati
   });
   await page.route('**/api/identify', route => ++captures === 1
     ? route.fulfill({ status: 422 }) : route.fulfill({ json: { name: 'water bottle' } }));
-  await page.goto('/');
+  await openStudioWithGemini(page);
   const camera = await openCamera(page, 2);
   const shutter = camera.getByRole('button', { name: 'Take photo' });
   await shutter.click();
@@ -161,7 +168,7 @@ test('denied camera access leaves the slot available', async ({ page }) => {
   await page.addInitScript(() => {
     navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('Denied', 'NotAllowedError'));
   });
-  await page.goto('/');
+  await openStudioWithGemini(page);
   const camera = await openCamera(page, 1);
   await expect(camera.getByRole('alert')).toContainText('Allow camera access');
   await page.keyboard.press('Escape');
@@ -178,7 +185,7 @@ test('a bare mouse result lets the photographer choose the device and keeps its 
     requests.push(route.request().url());
     return route.fulfill({ status: 503 });
   });
-  await page.goto('/');
+  await openStudioWithGemini(page);
   const camera = await openCamera(page, 2);
   await camera.getByRole('button', { name: 'Take photo' }).click();
   await expect(camera.getByRole('button', { name: 'Animal mouse' })).toBeVisible();
@@ -201,7 +208,7 @@ test('a computer keyboard reuses its illustration and requests a typing sound', 
     requests.push(new URL(route.request().url()).searchParams.get('name')!);
     return route.fulfill({ status: 503 });
   });
-  await page.goto('/');
+  await openStudioWithGemini(page);
   const camera = await openCamera(page, 1);
   await camera.getByRole('button', { name: 'Take photo' }).click();
   await expect(camera).toBeHidden();
@@ -213,7 +220,7 @@ test('a computer keyboard reuses its illustration and requests a typing sound', 
 test('closing the camera during recognition discards the result and releases the camera', async ({ page }) => {
   let pending: Route | undefined;
   await page.route('**/api/identify', route => { pending = route; });
-  await page.goto('/');
+  await openStudioWithGemini(page);
   const camera = await openCamera(page, 4);
   const shutter = camera.getByRole('button', { name: 'Take photo' });
   await expect(shutter).toBeEnabled();
@@ -240,7 +247,7 @@ test.describe('camera with phone motion', () => {
       } });
     });
     await page.route('**/api/identify', route => route.fulfill({ json: { name: 'bell' } }));
-    await page.goto('/');
+    await openStudioWithGemini(page);
     const camera = await openCamera(page, 2);
     const shutter = camera.getByRole('button', { name: 'Take photo' });
     await expect(shutter).toBeEnabled();

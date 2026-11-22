@@ -26,7 +26,7 @@ test('the public demo replays cached clips and generates only with the supplied 
     const key = new Headers(init?.headers).get('xi-api-key');
     return new Response('bounce for ' + key, { headers: { 'content-type': 'audio/mpeg' } });
   });
-  const server = createServer(withProviderKey(soundHandler(directory), 'site-key'));
+  const server = createServer(withProviderKey(soundHandler(directory), { ELEVENLABS_API_KEY: 'site-key' }));
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise<void>(resolve => server.close(() => resolve())));
   const url = 'http://127.0.0.1:' + (server.address() as AddressInfo).port + '/api/sounds?name=';

@@ -250,7 +250,7 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
   const full = firstFree === -1;
   const saved = pickerSlot === null ? [] : instruments.filter(item => !performers.includes(item));
   const voices = pickerSlot === null ? [] : beatbox.filter(item => !performers.includes(item));
-  const cameraNeedsKey = !access.account && !access.keys.gemini;
+  const cameraNeedsKey = !access.keys.gemini;
 
   return (
     <main className="workspace">

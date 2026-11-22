@@ -37,7 +37,7 @@ export function ApiKeysDialog({ keys, welcome, onCancel, onSave }: Props) {
   }}>
     <form onSubmit={submit} autoComplete="off">
       <h2 id="keys-title">Your API keys</h2>
-      <p>Use your own provider accounts for photos or sounds. Both keys are optional.</p>
+      <p>Drawing, beatbox and bundled sounds work without keys.</p>
       <label htmlFor="gemini-key">Gemini API key <span>Photo recognition</span></label>
       <input id="gemini-key" name="gemini" type="password" maxLength={512} defaultValue={keys.gemini}
         spellCheck={false} autoComplete="off" />

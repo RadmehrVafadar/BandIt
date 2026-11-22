@@ -35,7 +35,7 @@ export async function objectSound(name: string, context: BaseAudioContext, acces
     });
   }
   if (response.status === 403 && access.keys.elevenlabs) throw new SoundKeyError('Check your ElevenLabs key in API keys.');
-  if (response.status === 503 && !access.account && !access.keys.elevenlabs) {
+  if (response.status === 503 && !access.keys.elevenlabs) {
     throw new SoundKeyError('Add an ElevenLabs key in API keys to generate sounds.');
   }
   if (!response.ok) throw new Error('Sound unavailable');

@@ -22,8 +22,8 @@ npm run dev
 ```
 
 Open the localhost URL Vite prints and choose **See demo**, or sign in with Google to keep a separate local studio.
-In the demo, use **API keys** to add your own Gemini key for photo recognition or ElevenLabs key for sound generation.
-After sign-in, enter either provider key or select **Skip for now** to use the site's keys.
+Use **API keys** in either mode to enter your own provider keys.
+After sign-in, choose **Skip for now** to draw and play sounds without keys.
 See the [login and API key guide](docs/authentication.md) for hosting settings.
 
 On desktop, each time you fill the mix, another empty slot appears.
@@ -37,7 +37,7 @@ Removing objects until one remains returns it to motion playback.
 If motion access is denied or sensor readings are unavailable, the object plays on the beat.
 If an in-app browser waits for a playback gesture, tap **Play** after the object appears.
 
-For shared camera recognition after sign-in, put `GEMINI_API_KEY` in the project's ignored `.env.local` and restart Vite.
+Add your Gemini key in **API keys** to use photo recognition.
 Open an empty **+** slot, choose **Camera**, allow camera access, and select **Take photo**.
 BandIt sends that frame to Gemini and adds the identified object to the slot you chose.
 If Gemini returns an ambiguous label such as “mouse,” you can choose the animal or the computer accessory before adding it.
@@ -46,10 +46,10 @@ Other objects use the photo and a built-in sound.
 A computer mouse keeps its photo and plays a click.
 Camera access requires localhost or HTTPS.
 
-For shared live sounds after sign-in, put `ELEVENLABS_API_KEY` in the project's ignored `.env.local` and restart Vite.
+Add your ElevenLabs key in **API keys** to generate sounds for new objects.
 For sound generation, the server sends the selected label to ElevenLabs and requests a short one-shot.
 Keys, Drum, and Cup ship with generated clips in `public/demo-sounds/`.
-Run `npm run sounds:demo` before rehearsal to fill any missing clips.
+To regenerate bundled clips locally, set `ELEVENLABS_API_KEY` in the ignored `.env.local` and run `npm run sounds:demo`.
 Listen to the MP3s and remove an individual clip before rerunning the command if you want another take.
 Horse plays without an API key using a trimmed [public-domain field recording by Hü](https://commons.wikimedia.org/wiki/File:Wiehern.ogg).
 In beat playback, new drawings join a running band on a bar boundary.
@@ -121,7 +121,7 @@ npm run test:e2e
 npm run build
 ```
 
-The browser tests cover Google sign-in, personal and shared keys, the public demo, simulated camera capture, ambiguous labels, interrupted touch strokes, mobile audio startup, phone motion, beat playback and persistence.
+The browser tests cover Google sign-in, personal keys for both studio modes, simulated camera capture, ambiguous labels, interrupted touch strokes, mobile audio startup, phone motion, beat playback and persistence.
 Set `BANDIT_CHROME` to use an existing Chrome or Chromium executable.
 For a local demo of the built app with live generation, run `npm run build` followed by `npm run preview`.
 Static hosting serves the sketch model, bundled clips and built-in voices.

@@ -6,9 +6,9 @@ import { identifyHandler } from './server/identify.ts';
 import { withProviderKey } from './server/access.ts';
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), ['ELEVENLABS_', 'GEMINI_', 'VITE_AUTH0_']);
-  const sounds = withProviderKey(soundHandler('.sound-cache'), env.ELEVENLABS_API_KEY, env);
-  const identify = withProviderKey(identifyHandler(), env.GEMINI_API_KEY, env);
+  const env = loadEnv(mode, process.cwd(), 'VITE_AUTH0_');
+  const sounds = withProviderKey(soundHandler('.sound-cache'), env);
+  const identify = withProviderKey(identifyHandler(), env);
   function objectApi(server: ViteDevServer | PreviewServer) {
     server.middlewares.use('/api/sounds', sounds);
     server.middlewares.use('/api/identify', identify);

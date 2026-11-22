@@ -12,4 +12,4 @@ const [url, token] = UPSTASH_REDIS_REST_URL || UPSTASH_REDIS_REST_TOKEN
 if (Boolean(url) !== Boolean(token)) throw new Error('Incomplete Redis sound cache configuration');
 const shared = url && token ? redisSoundCache(url, token) : undefined;
 
-export default withProviderKey(soundHandler(join(tmpdir(), 'pocket-band-sounds'), shared), process.env.ELEVENLABS_API_KEY);
+export default withProviderKey(soundHandler(join(tmpdir(), 'pocket-band-sounds'), shared));

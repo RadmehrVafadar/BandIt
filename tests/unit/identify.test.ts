@@ -25,7 +25,7 @@ function candidate(name: unknown) {
 test('the public demo uses the supplied Gemini key for recognition and never falls back to the site key', async t => {
   const provider = t.mock.fn(async (_url: RequestInfo | URL, init?: RequestInit) =>
     new Headers(init?.headers).get('x-goog-api-key') === 'guest-key' ? candidate('Drum') : new Response(null, { status: 403 }));
-  const server = createServer(withProviderKey(identifyHandler(provider), 'site-key'));
+  const server = createServer(withProviderKey(identifyHandler(provider), { GEMINI_API_KEY: 'site-key' }));
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise<void>(resolve => server.close(() => resolve())));
   const url = 'http://127.0.0.1:' + (server.address() as AddressInfo).port + '/api/identify';

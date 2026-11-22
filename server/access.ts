@@ -5,7 +5,7 @@ import { authConfig, isGoogleSubject, isProviderKey } from '../auth/config.ts';
 export type ProviderAccess = { key: string | undefined; cacheScope?: string };
 type ProviderHandler = (req: IncomingMessage, res: ServerResponse, access: ProviderAccess) => Promise<void>;
 
-export function withProviderKey(handler: ProviderHandler, sharedKey: string | undefined,
+export function withProviderKey(handler: ProviderHandler,
   env: Record<string, string | undefined> = process.env): RequestListener {
   const config = authConfig(env);
   const keys = config && createRemoteJWKSet(new URL('.well-known/jwks.json', config.issuer));
@@ -40,8 +40,7 @@ export function withProviderKey(handler: ProviderHandler, sharedKey: string | un
     if (supplied !== undefined && !isProviderKey(supplied)) {
       return void res.writeHead(400).end();
     }
-    const key = supplied ?? (demo ? undefined : sharedKey);
     const cacheScope = supplied ? (subject ?? 'demo:' + supplied) : undefined;
-    return handler(req, res, { key, cacheScope });
+    return handler(req, res, { key: supplied, cacheScope });
   };
 }
