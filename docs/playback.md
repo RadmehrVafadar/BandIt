@@ -15,9 +15,10 @@ A fresh drawing starts where you drew it.
 Picking it again through **+** moves it to that slot's column and saves the new placement.
 Large saved drawings scale down to fit their column.
 
-Each floor landing gives the object a random neon color and a soft glow.
+Each floor landing tints the object a random neon color and surrounds it with a wide, soft glow of the same color.
 During beat playback, the object rebounds a little left or right and favors open space near the edges.
-The artwork fades back to white on the way up, and the audio clock sets the next landing.
+The tint and glow fade together over 460 ms, returning the artwork to white.
+The audio clock sets the next landing.
 Reduced Motion uses a softer tint on the stationary performer during beat playback.
 
 A lone object plays its sample on its assigned rhythm.
