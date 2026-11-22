@@ -118,7 +118,7 @@ test('phone floor impacts glow once while a side hit only plays the sample', asy
   const kick = await addVoice(page);
   await tilt(page, 0, 0);
   await expect(kick).toHaveAttribute('data-loose', '');
-  const tint = () => kick.evaluate(actor => getComputedStyle(actor, '::after').backgroundColor);
+  const tint = () => kick.locator('.performer-art').evaluate(art => getComputedStyle(art, '::after').backgroundColor);
   const resting = await tint();
   await tilt(page, 9.8, 0);
   await expect.poll(() => playedSounds(page)).toHaveLength(1);

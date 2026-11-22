@@ -320,7 +320,8 @@ test('the four + slots place picked objects left to right across the stage', asy
   await expect.poll(centers).toEqual(lanes);
 });
 
-test('a beat landing tints the drawing neon and the glow fades on the rebound', async ({ page }) => {
+test('a beat landing gives the drawing a wide glow that fades with the neon tint', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/?demo');
   await page.getByRole('button', { name: 'Add an object to slot 1' }).click();
   await page.evaluate(() => {
@@ -329,15 +330,20 @@ test('a beat landing tints the drawing neon and the glow fades on the rebound', 
   });
   await page.getByRole('button', { name: 'Add Lip Kick' }).click();
   const actor = page.locator('[data-performer="Lip Kick"]');
-  type Frame = { gap: number; alpha: number; color: string };
+  type Frame = { gap: number; alpha: number; color: string; matchingGlow: boolean };
   const frames = await actor.evaluate(element => new Promise<Frame[]>(resolve => {
     const frames: Frame[] = [];
     const start = performance.now();
+    const art = element.querySelector('.performer-art')!;
     function sample() {
-      const ink = getComputedStyle(element, '::after').backgroundColor;
+      const ink = getComputedStyle(art, '::after').backgroundColor;
+      const glow = getComputedStyle(element, '::before').backgroundImage;
       const [r, g, b, alpha = 1] = ink.match(/[\d.]+/g)!.map(Number);
       const gap = innerHeight - element.getBoundingClientRect().bottom;
-      frames.push({ gap, alpha: Math.max(r, g, b) - Math.min(r, g, b) > 90 ? alpha : 0, color: [r, g, b].join(',') });
+      frames.push({
+        gap, alpha: Math.max(r, g, b) - Math.min(r, g, b) > 90 ? alpha : 0,
+        color: [r, g, b].join(','), matchingGlow: glow.includes(ink),
+      });
       if (performance.now() - start > 2600) resolve(frames);
       else requestAnimationFrame(sample);
     }
@@ -351,9 +357,13 @@ test('a beat landing tints the drawing neon and the glow fades on the rebound', 
   const fading = rebound.findIndex(frame => frame.gap > 15 && frame.alpha > .1 && frame.alpha < .8);
   expect(fading).toBeGreaterThanOrEqual(0);
   expect(rebound.slice(fading + 1).some(frame => frame.gap > 15 && frame.alpha === 0)).toBe(true);
+  expect(frames.every(frame => frame.matchingGlow)).toBe(true);
+  const glowEdge = await actor.evaluate(element => parseFloat(getComputedStyle(element, '::before').right));
+  expect(glowEdge).toBeLessThanOrEqual(-24);
   await expect(actor.locator('img')).toHaveCSS('filter', /drop-shadow/);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(actor.locator('img')).not.toHaveCSS('filter', /drop-shadow/);
+  expect(await actor.evaluate(element => getComputedStyle(element, '::before').content)).toBe('none');
 });
 
 test('nearby performers bump sideways without sliding off the stage', async ({ page }) => {
