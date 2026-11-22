@@ -175,17 +175,30 @@ button:disabled { cursor: default; color: #77777e; }
   bottom: 0;
   transform: translate(calc(-50% + var(--slide, 0px)), calc(-1 * var(--rise) * var(--travel)));
   width: var(--width); height: var(--height);
-  display: grid; place-items: center;
-  background: black; color: transparent; mix-blend-mode: screen;
+  color: transparent; mix-blend-mode: screen;
 }
-/* Multiply the landing color into the white ink. Screen keeps the black backing invisible. */
-.performer::after { content: ''; position: absolute; inset: 0; background: currentColor; mix-blend-mode: multiply; }
-.performer > :is(img, svg) { filter: var(--art-filter, grayscale(1)) drop-shadow(0 0 4px currentColor); }
-.performer > svg { stroke: white; }
+.performer::before {
+  content: '';
+  position: absolute;
+  inset: clamp(-56px, -8vmin, -36px);
+  background: radial-gradient(closest-side, currentColor, transparent);
+  opacity: .6;
+}
+/* Pad the black backing to cover the tint's antialiased edges. */
+.performer-art {
+  position: absolute; inset: -1px;
+  display: grid; place-items: center;
+  border: 1px solid black;
+  background: black; mix-blend-mode: screen;
+}
+.performer-art::after { content: ''; position: absolute; inset: 0; background: currentColor; mix-blend-mode: multiply; }
+.performer-art > :is(img, svg) { filter: var(--art-filter, grayscale(1)) drop-shadow(0 0 4px currentColor); }
+.performer-art > svg { stroke: white; }
 @media (prefers-reduced-motion: reduce) {
   .performer { transform: translate(-50%, calc(-1 * var(--travel))); }
-  .performer::after { opacity: .3; }
-  .performer > :is(img, svg) { filter: var(--art-filter, grayscale(1)); }
+  .performer::before { content: none; }
+  .performer-art::after { opacity: .3; }
+  .performer-art > :is(img, svg) { filter: var(--art-filter, grayscale(1)); }
 }
 .performer[data-drawing=true] {
   --width: min(var(--art-width), var(--art-height) * var(--art-aspect), var(--slot-width, 100cqw - 2px), (100cqh - 20px) * var(--art-aspect));

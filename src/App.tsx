@@ -286,7 +286,7 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
               else actors.current.delete(item.id);
             }} data-part={engine?.part(item.id)} data-performer={item.name} data-active={slots[index] === item.id}
             data-hit={hits.includes(index)} data-queued={queued} data-drawing={!!item.drawing} aria-hidden="true">
-            <ObjectArt item={item} size={36} />
+            <div className="performer-art"><ObjectArt item={item} size={36} /></div>
           </div>;
         })}
       </Drawing>
