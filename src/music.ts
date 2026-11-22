@@ -64,7 +64,12 @@ export function arrange(players: readonly Musician[], previous: ReadonlyMap<stri
 export type Sample = { samples: Float32Array; rate: number; preserveRecording?: boolean; articulation?: 'whinny' | 'beatbox' };
 export type Position = { x: number; y: number };
 export type DrawingSize = { width: number; height: number; aspect: number };
-export type Instrument = { id: string; name: string; image?: string; kind?: ObjectKind; role: Role; sample: Sample; position?: Position; drawing?: DrawingSize };
+export type Instrument = {
+  id: string; name: string; image?: string; kind?: ObjectKind; role: Role; sample: Sample;
+  // Freehand drawings supply x. Picker objects use the center of their current slot.
+  position?: { x?: number; y: number };
+  drawing?: DrawingSize;
+};
 export type Slots = (string | null)[];
 export type Change = { id: string | null; at: number };
 

@@ -17,7 +17,7 @@ import { createObject, doodleSuggestion, drawingFile, objects } from './objects.
 import type { Suggestion } from './objects.ts';
 import { starters } from './starters.ts';
 import { objectSound, restoreHorseSounds, SoundKeyError } from './sounds.ts';
-import { createStagePhysics } from './stage-physics.ts';
+import { createStagePhysics, glowOnLanding } from './stage-physics.ts';
 import { useSolo } from './useSolo.ts';
 import { usePhoneMotion } from './usePhoneMotion.ts';
 
@@ -116,13 +116,18 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
         setSlots(frame.slots);
       }, (position, landed) => {
         const active: HTMLDivElement[] = [];
+        const rebounds: HTMLDivElement[] = [];
         for (const [id, actor] of actors.current) {
-          const height = instance!.height(id, position, entrances.current.get(id) ?? 0);
-          const rise = landed.includes(id) ? 0 : height;
+          const hitFloor = landed.includes(id);
+          if (hitFloor) {
+            glowOnLanding(actor);
+            rebounds.push(actor);
+          }
+          const rise = hitFloor ? 0 : instance!.height(id, position, entrances.current.get(id) ?? 0);
           actor.style.setProperty('--rise', String(rise));
-          if (actor.dataset.active === 'true') active.push(actor);
+          if (hitFloor || actor.dataset.active === 'true') active.push(actor);
         }
-        movePerformers(active, position * STEP_SECONDS, motion.matches);
+        movePerformers(active, rebounds, position * STEP_SECONDS, motion.matches);
       }, loops, parts);
       setEngine(instance);
     }
@@ -172,12 +177,18 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
   function add(item: Instrument, index: number, isNew = false) {
     if (!engine || !isFree(index) || engine.arrangement.includes(item.id)) return false;
     const first = !engine.running && !slots.some(Boolean);
+    let updated: Instrument | undefined;
     if (isNew) {
-      bank.current.set(item.id, item);
+      updated = item;
       setInstruments(items => [...items, item]);
+    } else if (item.position?.x !== undefined) {
+      const picked = { ...item, position: { y: item.position.y } };
+      updated = picked;
+      setInstruments(items => items.map(saved => saved.id === item.id ? picked : saved));
     }
+    if (updated) bank.current.set(item.id, updated);
     entrances.current.set(item.id, engine.change(index, item.id));
-    persist(isNew ? item : undefined);
+    persist(updated);
     setStatus(engine.pending.has(index) ? item.name + ' joins on the next bar.' : item.name + ' added to the mix.');
     refresh(value => value + 1);
     if (first) void play();
@@ -261,7 +272,8 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
           if (!item) return null;
           const position = item.position ?? { x: (index + 0.5) / stageSize, y: 0.36 };
           const style = {
-            '--x': position.x * 100 + '%', '--y': position.y * 100 + 'cqh',
+            '--x': x * 100 + '%', '--y': (item.position?.y ?? 0.36) * 100 + 'cqh',
+            '--slot-width': item.position?.x === undefined ? slotWidth * 100 + 'cqw' : undefined,
             '--art-width': item.drawing && item.drawing.width * 100 + 'cqw',
             '--art-height': item.drawing && item.drawing.height * 100 + 'cqh',
             '--art-aspect': item.drawing?.aspect,

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { BeatEngine } from './engine.ts';
 import { createLooseStage } from './phone-motion.ts';
+import { glowOnLanding } from './stage-physics.ts';
 
 type MotionSensor = typeof DeviceMotionEvent & { requestPermission?(): Promise<PermissionState> };
 
@@ -47,7 +48,10 @@ export function usePhoneMotion(
 
   useEffect(() => {
     if (!engine || !active || !playing) return;
-    const impact = (id: string) => engine.playImpact(id);
+    const impact = (id: string, hitFloor: boolean) => {
+      engine.playImpact(id);
+      if (hitFloor) glowOnLanding(actors.current.get(id)!);
+    };
     let previous = performance.now();
     let animation: number;
     function move(now: number) {
