@@ -15,7 +15,8 @@ Picking it again through **+** moves it to that slot's column and saves the new 
 Large saved drawings scale down to fit their column.
 
 Each floor landing gives the object a random neon color and a soft glow.
-As the object rises, the glow fades and its artwork returns to white.
+During beat playback, the object rebounds a little left or right and favors open space near the edges.
+The artwork fades back to white on the way up, and the audio clock sets the next landing.
 Reduced Motion uses a softer tint on the stationary performer during beat playback.
 
 A lone object plays its sample on its assigned rhythm.

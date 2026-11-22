@@ -325,6 +325,26 @@ test('nearby performers bump sideways without sliding off the stage', async ({ p
   await expect.poll(async () => (await drumActor.boundingBox())!.x).toBeCloseTo(originalX, 1);
 });
 
+test('a single performer can rebound to either side of its starting slot', async ({ page }) => {
+  await page.setViewportSize({ width: 480, height: 640 });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/?demo');
+  await page.getByRole('button', { name: 'Add an object to slot 2' }).click();
+  await page.evaluate(() => { Math.random = () => .1; });
+  await page.getByRole('button', { name: 'Add Lip Kick' }).click();
+  const actor = page.locator('[data-performer="Lip Kick"]');
+  const slotCenter = 480 * .375;
+  const airborneX = () => actor.evaluate(element => {
+    const box = element.getBoundingClientRect();
+    return innerHeight - box.bottom > 50 ? box.left + box.width / 2 : NaN;
+  });
+  await expect.poll(airborneX, { intervals: [16] }).toBeLessThan(slotCenter - 12);
+  await page.evaluate(() => { Math.random = () => .9; });
+  await expect.poll(airborneX, { intervals: [16] }).toBeGreaterThan(slotCenter + 12);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect.poll(airborneX).toBeCloseTo(slotCenter, 1);
+});
+
 test('four identical bells play distinct parts on the same floor grid', async ({ page }) => {
   await page.goto('/');
   for (const x of [35, 150, 265, 380]) {

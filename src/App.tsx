@@ -94,14 +94,18 @@ export function App({ access, onExit, onEditKeys }: { access: StudioAccess; onEx
         setSlots(frame.slots);
       }, (position, landed) => {
         const active: HTMLDivElement[] = [];
+        const rebounds: HTMLDivElement[] = [];
         for (const [id, actor] of actors.current) {
           const hitFloor = landed.includes(id);
-          if (hitFloor) glowOnLanding(actor);
+          if (hitFloor) {
+            glowOnLanding(actor);
+            rebounds.push(actor);
+          }
           const rise = hitFloor ? 0 : instance!.height(id, position, entrances.current.get(id) ?? 0);
           actor.style.setProperty('--rise', String(rise));
-          if (actor.dataset.active === 'true') active.push(actor);
+          if (hitFloor || actor.dataset.active === 'true') active.push(actor);
         }
-        movePerformers(active, position * STEP_SECONDS, motion.matches);
+        movePerformers(active, rebounds, position * STEP_SECONDS, motion.matches);
       }, loops, parts);
       setEngine(instance);
     }
